@@ -65,6 +65,7 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 int Distance_Traveled(int distance_total, int motor_steps, double step_angle);
+int Steps_Walked(int Distance_Traveled);
 /* USER CODE END 0 */
 
 /**
@@ -393,10 +394,16 @@ static void MX_GPIO_Init(void)
 int Distance_Traveled(int distance_total, int motor_steps, double step_angle)
 {
   double distance = distance_total;
-  distance += (2 * PI * step_angle / 360) * motor_steps;
+  distance += (2 * M_PI * step_angle / 360) * motor_steps;
   return (int)distance;
 }
 
+int Steps_Walked(int Distance_Traveled)
+{
+  double Steps_Walked = Distance_Traveled / 28;
+
+  return (double)Steps_Walked;
+}
 /* USER CODE END 4 */
 
 /**
