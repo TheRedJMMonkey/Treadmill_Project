@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <math.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -62,7 +63,7 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int Distance_Traveled(int distance_total, int motor_steps, double step_angle);
 /* USER CODE END 0 */
 
 /**
@@ -376,6 +377,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+int Distance_Traveled(int distance_total, int motor_steps, double step_angle)
+{
+  double distance = distance_total;
+  distance += (2 * PI * step_angle / 360) * motor_steps;
+  return (int)distance;
+}
 
 /* USER CODE END 4 */
 
