@@ -102,6 +102,16 @@ void Error_Handler(void);
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
+#define STEPPER_A_Pin GPIO_PIN_15
+#define STEPPER_A_GPIO_Port GPIOA
+#define STEPPER_B_Pin GPIO_PIN_10
+#define STEPPER_B_GPIO_Port GPIOC
+#define STEPPER_NA_Pin GPIO_PIN_11
+#define STEPPER_NA_GPIO_Port GPIOC
+#define STEPPER_NB_Pin GPIO_PIN_12
+#define STEPPER_NB_GPIO_Port GPIOC
+#define SERVO_CTRL_Pin GPIO_PIN_3
+#define SERVO_CTRL_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
