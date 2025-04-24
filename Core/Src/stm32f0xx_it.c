@@ -22,6 +22,7 @@
 #include "stm32f0xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "I2C_LCD_PCF8574.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -65,8 +66,8 @@ extern volatile int dir;
 /*           Cortex-M0 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
 /**
-  * @brief This function handles Non maskable interrupt.
-  */
+ * @brief This function handles Non maskable interrupt.
+ */
 void NMI_Handler(void)
 {
   /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
@@ -80,8 +81,8 @@ void NMI_Handler(void)
 }
 
 /**
-  * @brief This function handles Hard fault interrupt.
-  */
+ * @brief This function handles Hard fault interrupt.
+ */
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
@@ -95,8 +96,8 @@ void HardFault_Handler(void)
 }
 
 /**
-  * @brief This function handles System service call via SWI instruction.
-  */
+ * @brief This function handles System service call via SWI instruction.
+ */
 void SVC_Handler(void)
 {
   /* USER CODE BEGIN SVC_IRQn 0 */
@@ -108,8 +109,8 @@ void SVC_Handler(void)
 }
 
 /**
-  * @brief This function handles Pendable request for system service.
-  */
+ * @brief This function handles Pendable request for system service.
+ */
 void PendSV_Handler(void)
 {
   /* USER CODE BEGIN PendSV_IRQn 0 */
@@ -121,8 +122,8 @@ void PendSV_Handler(void)
 }
 
 /**
-  * @brief This function handles System tick timer.
-  */
+ * @brief This function handles System tick timer.
+ */
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
@@ -142,12 +143,37 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles EXTI line 2 and 3 interrupts.
-  */
+ * @brief This function handles EXTI line 2 and 3 interrupts.
+ */
 void EXTI2_3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_3_IRQn 0 */
   // STOP all motors and display LCD message to reset the microcontroller to restart
+
+  char stopMsg1[17] = "E-STOP activated";
+  stopMsg1[16] = 0;
+  char stopMsg2[17] = "Restart to clear";
+  stopMsg2[16] = 0;
+
+  // Stop servo
+  HAL_GPIO_WritePin(SERVO_CTRL_GPIO_Port, SERVO_CTRL_Pin, GPIO_PIN_RESET);
+
+  // Stop stepper
+  HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(STEPPER_B_GPIO_Port, STEPPER_B_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(STEPPER_NA_GPIO_Port, STEPPER_NA_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(STEPPER_NB_GPIO_Port, STEPPER_NB_Pin, GPIO_PIN_RESET);
+
+  // Display user message to restart to clear the E-STOP
+  LCD_PrintString(stopMsg1);
+  HAL_Delay(5);
+  LCD_PrintString(stopMsg2);
+  HAL_Delay(5);
+
+  while (1)
+  {
+    // Wait forever until the microcontroller restarts
+  }
 
   /* USER CODE END EXTI2_3_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(ESTOP_Pin);
@@ -157,8 +183,8 @@ void EXTI2_3_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles EXTI line 4 to 15 interrupts.
-  */
+ * @brief This function handles EXTI line 4 to 15 interrupts.
+ */
 void EXTI4_15_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI4_15_IRQn 0 */

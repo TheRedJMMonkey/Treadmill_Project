@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <math.h>
+#include "I2C_LCD_PCF8574.h"
 
 /* USER CODE END Includes */
 
