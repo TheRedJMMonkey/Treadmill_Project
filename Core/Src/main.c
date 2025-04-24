@@ -33,6 +33,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+static const uint8_t SRAM_WR_CMD = 0x02;
+static const uint8_t SRAM_RD_CMD = 0x03;
+
 volatile int dir = 0;
 
 /* USER CODE END PD */
@@ -65,8 +68,10 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int Distance_Traveled(int distance_total, int motor_steps, double step_angle);
-int Steps_Walked(int Distance_Traveled);
+
+int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
+int Steps_Walked(int distanceTraveled);
+
 /* USER CODE END 0 */
 
 /**
@@ -391,19 +396,77 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-int Distance_Traveled(int distance_total, int motor_steps, double step_angle)
+/// @brief
+/// @param distanceTotal
+/// @param motorSteps
+/// @param stepAngle
+/// @return
+int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle)
 {
-  double distance = distance_total;
-  distance += (2 * M_PI * step_angle / 360) * motor_steps;
+  double distance = distanceTotal;
+  distance += (2 * M_PI * stepAngle / 360) * motorSteps;
   return (int)distance;
 }
 
-int Steps_Walked(int Distance_Traveled)
+/// @brief
+/// @param distanceTraveled
+/// @return
+int Steps_Walked(int distanceTraveled)
 {
-  double Steps_Walked = Distance_Traveled / 28;
+  double Steps_Walked = distanceTraveled / 28;
 
   return (double)Steps_Walked;
+}
+
+/// @brief Read bytes from the SRAM over SPI starting from addr and ending at addr + size
+/// @param addr
+/// @param rd_array
+/// @param size
+void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size)
+{
+  uint8_t spi_rd_buf[size + 3];
+  uint8_t spi_wr_buf[size + 3];
+
+  spi_wr_buf[0] = SRAM_RD_CMD;
+  spi_wr_buf[1] = (addr >> 8) & 0xFF;
+  spi_wr_buf[2] = (addr & 0xFF) + 1;
+  for (int i = 0; i < size; i++)
+  {
+    spi_wr_buf[i + 3] = 0xAA; // Dummy value to be able to read
+  }
+
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
+  HAL_SPI_TransmitReceive(&hspi2, spi_wr_buf, spi_rd_buf, size, 100);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
+  HAL_Delay(2);
+
+  for (int i = 0; i < size; i++)
+  {
+    rd_array[i] = spi_wr_buf[i + 3]; // Copy bytes from the read buffer into the destination array
+  }
+}
+
+/// @brief Write bytes to the SRAM over SPI starting from addr and ending at addr + size
+/// @param addr
+/// @param wr_array
+/// @param size
+void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size)
+{
+  uint8_t spi_rd_buf[size + 3];
+  uint8_t spi_wr_buf[size + 3];
+
+  spi_wr_buf[0] = SRAM_WR_CMD;
+  spi_wr_buf[1] = (addr >> 8) & 0xFF;
+  spi_wr_buf[2] = (addr & 0xFF) + 1;
+  for (int i = 0; i < size; i++)
+  {
+    spi_wr_buf[i + 3] = wr_array[i]; // Copy bytes from the write array into the write buffer
+  }
+
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
+  HAL_SPI_TransmitReceive(&hspi2, spi_wr_buf, spi_rd_buf, size, 100);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
+  HAL_Delay(2);
 }
 /* USER CODE END 4 */
 
