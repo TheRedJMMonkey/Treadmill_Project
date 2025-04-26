@@ -50,6 +50,8 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi2;
 
+TIM_HandleTypeDef htim1;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -62,16 +64,23 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
+
+int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
+
+int Steps_Walked(int distanceTraveled);
+
+void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size);
+
+void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size);
+
+void setServoPos(uint16_t servoPosDeg);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
-int Steps_Walked(int distanceTraveled);
-
 /* USER CODE END 0 */
 
 /**
@@ -82,7 +91,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  char lcdStr1[17];
+  char lcdStr2[17];
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -106,7 +116,22 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI2_Init();
   MX_USART1_UART_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  // Start 50Hz PWM for the servo
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  TIM2->CCR2 = 0;
+
+  // Initalize the LCD
+  LCD_Start();
+
+  // Configure SRAM for sequential reads and writes
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_RESET);
+  uint8_t sramEnSequentialReadCMD[2] = {0x05, 0x40};
+  uint8_t sramEnSequentialWriteCMD[2] = {0x01, 0x40};
+  HAL_SPI_Transmit(&hspi2, sramEnSequentialReadCMD, 2, 100);
+  HAL_SPI_Transmit(&hspi2, sramEnSequentialWriteCMD, 2, 100);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 2 */
 
@@ -253,6 +278,80 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 14;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 63999;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+}
+
+/**
  * @brief USART1 Initialization Function
  * @param None
  * @retval None
@@ -304,13 +403,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, NCS_MEMS_SPI_Pin | EXT_RESET_Pin | LD3_Pin | LD6_Pin | LD4_Pin | LD5_Pin | STEPPER_B_Pin | STEPPER_NA_Pin | STEPPER_NB_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, NCS_MEMS_SPI_Pin | EXT_RESET_Pin | GPIO_PIN_6 | LD6_Pin | LD4_Pin | LD5_Pin | STEPPER_B_Pin | STEPPER_NA_Pin | STEPPER_NB_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, NCS_SRAM_SPI_Pin | STEPPER_A_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SERVO_CTRL_GPIO_Port, SERVO_CTRL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : ENC_A_Pin ENC_B_Pin */
   GPIO_InitStruct.Pin = ENC_A_Pin | ENC_B_Pin;
@@ -318,10 +414,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : NCS_MEMS_SPI_Pin EXT_RESET_Pin LD3_Pin LD6_Pin
+  /*Configure GPIO pins : NCS_MEMS_SPI_Pin EXT_RESET_Pin PC6 LD6_Pin
                            LD4_Pin LD5_Pin STEPPER_B_Pin STEPPER_NA_Pin
                            STEPPER_NB_Pin */
-  GPIO_InitStruct.Pin = NCS_MEMS_SPI_Pin | EXT_RESET_Pin | LD3_Pin | LD6_Pin | LD4_Pin | LD5_Pin | STEPPER_B_Pin | STEPPER_NA_Pin | STEPPER_NB_Pin;
+  GPIO_InitStruct.Pin = NCS_MEMS_SPI_Pin | EXT_RESET_Pin | GPIO_PIN_6 | LD6_Pin | LD4_Pin | LD5_Pin | STEPPER_B_Pin | STEPPER_NA_Pin | STEPPER_NB_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -376,13 +472,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SERVO_CTRL_Pin */
-  GPIO_InitStruct.Pin = SERVO_CTRL_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(SERVO_CTRL_GPIO_Port, &GPIO_InitStruct);
-
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI2_3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI2_3_IRQn);
@@ -418,7 +507,7 @@ int Steps_Walked(int distanceTraveled)
   return (double)Steps_Walked;
 }
 
-/// @brief Read bytes from the SRAM over SPI starting from addr and ending at addr + size
+/// @brief Read bytes sequentially from the SRAM over SPI starting from addr and ending at addr + size
 /// @param addr
 /// @param rd_array
 /// @param size
@@ -436,7 +525,7 @@ void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size)
   }
 
   HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi2, spi_wr_buf, spi_rd_buf, size, 100);
+  HAL_SPI_TransmitReceive(&hspi2, spi_wr_buf, spi_rd_buf, size + 3, 100);
   HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
   HAL_Delay(2);
 
@@ -446,13 +535,12 @@ void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size)
   }
 }
 
-/// @brief Write bytes to the SRAM over SPI starting from addr and ending at addr + size
+/// @brief Write bytes sequentially to the SRAM over SPI starting from addr and ending at addr + size
 /// @param addr
 /// @param wr_array
 /// @param size
 void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size)
 {
-  uint8_t spi_rd_buf[size + 3];
   uint8_t spi_wr_buf[size + 3];
 
   spi_wr_buf[0] = SRAM_WR_CMD;
@@ -464,10 +552,28 @@ void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size)
   }
 
   HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi2, spi_wr_buf, spi_rd_buf, size, 100);
+  HAL_SPI_Transmit(&hspi2, spi_wr_buf, size + 3, 100);
   HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
   HAL_Delay(2);
 }
+
+/// @brief Set the servo position to servoPosDeg by changing the PWM pulse width.
+///
+/// The valid range for the servo position is about 0-210 deg
+/// @param servoPosDeg
+void setServoPos(uint16_t servoPosDeg)
+{
+  // Constrain servoPosDeg to max of 210
+  // We don't need to constrain the low side since it's unsigned
+  servoPosDeg = (servoPosDeg > 210) ? (210) : (servoPosDeg);
+
+  // Map the servo position in degrees to a valid TIM2->CCR2 value
+  // The servo only responds to pulse widths between about 350-2600 us
+  uint16_t regVal = (double)servoPosDeg * 34.285 + 1119.9825;
+  TIM2->CCR2 = regVal;
+}
+
+
 /* USER CODE END 4 */
 
 /**

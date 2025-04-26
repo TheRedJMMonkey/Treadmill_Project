@@ -43,6 +43,7 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern volatile int dir;
+extern TIM_HandleTypeDef htim1;
 
 /* USER CODE END PV */
 
@@ -156,7 +157,7 @@ void EXTI2_3_IRQHandler(void)
   stopMsg2[16] = 0;
 
   // Stop servo
-  HAL_GPIO_WritePin(SERVO_CTRL_GPIO_Port, SERVO_CTRL_Pin, GPIO_PIN_RESET);
+  HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
 
   // Stop stepper
   HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_RESET);
