@@ -33,10 +33,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 static const uint8_t SRAM_WR_CMD = 0x02;
 static const uint8_t SRAM_RD_CMD = 0x03;
 
-volatile int dir = 0;
+static const int STEPS_PER_REV = 2048;
 
 /* USER CODE END PD */
 
@@ -51,10 +52,15 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+
+volatile int encDir = 0;
+volatile int step = 0;
+int stepDir = 0;
 
 /* USER CODE END PV */
 
@@ -65,17 +71,18 @@ static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 
 int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
 
-int Steps_Walked(int distanceTraveled);
+int stepsWalked(int distanceTraveled);
 
 void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size);
 
 void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size);
 
-void setServoPos(uint16_t servoPosDeg);
+void setServoPos(double servoPosDeg);
 
 /* USER CODE END PFP */
 
@@ -117,6 +124,7 @@ int main(void)
   MX_SPI2_Init();
   MX_USART1_UART_Init();
   MX_TIM1_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
   // Start 50Hz PWM for the servo
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
@@ -352,6 +360,43 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+ * @brief TIM7 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 4;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 65535;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+}
+
+/**
  * @brief USART1 Initialization Function
  * @param None
  * @retval None
@@ -500,11 +545,11 @@ int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle)
 /// @brief
 /// @param distanceTraveled
 /// @return
-int Steps_Walked(int distanceTraveled)
+int stepsWalked(int distanceTraveled)
 {
-  double Steps_Walked = distanceTraveled / 28;
+  double stepsWalked = distanceTraveled / 28;
 
-  return (double)Steps_Walked;
+  return (double)stepsWalked;
 }
 
 /// @brief Read bytes sequentially from the SRAM over SPI starting from addr and ending at addr + size
@@ -561,21 +606,26 @@ void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size)
 ///
 /// The valid range for the servo position is about 0-210 deg
 /// @param servoPosDeg
-void setServoPos(uint16_t servoPosDeg)
+void setServoPos(double servoPosDeg)
 {
-  // Constrain servoPosDeg to max of 210
-  // We don't need to constrain the low side since it's unsigned
-  servoPosDeg = (servoPosDeg > 210) ? (210) : (servoPosDeg);
+  // Constrain servoPosDeg to between 0 and 210
+  servoPosDeg = (servoPosDeg > 210) ? (210) : ((servoPosDeg < 0) ? (0) : (servoPosDeg));
 
   // Map the servo position in degrees to a valid TIM2->CCR2 value
   // The servo only responds to pulse widths between about 350-2600 us
-  uint16_t regVal = (double)servoPosDeg * 34.285 + 1119.9825;
+  uint16_t regVal = servoPosDeg * 34.285 + 1119.9825;
   TIM2->CCR2 = regVal;
 }
 
-
+/// @brief Set the stepper motor's speed to rpm and set the rotation direction
+/// @param rpm
+/// @param direction +-1
+void setStepperSpeed(double rpm, int direction)
+{
+  TIM7->ARR = 60.0 * 48000000.0 / 4 / rpm / (double)STEPS_PER_REV - 1;
+  stepDir = direction;
+}
 /* USER CODE END 4 */
-
 /**
  * @brief  This function is executed in case of error occurrence.
  * @retval None

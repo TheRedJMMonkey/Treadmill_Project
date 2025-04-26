@@ -42,8 +42,11 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-extern volatile int dir;
+
 extern TIM_HandleTypeDef htim1;
+extern volatile int encDir;
+extern volatile int step;
+extern int stepDir;
 
 /* USER CODE END PV */
 
@@ -58,7 +61,7 @@ extern TIM_HandleTypeDef htim1;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-
+extern TIM_HandleTypeDef htim7;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -185,17 +188,19 @@ void EXTI2_3_IRQHandler(void)
 
 /**
  * @brief This function handles EXTI line 4 to 15 interrupts.
+ *
+ * We are using it for handling the encoder for user input
  */
 void EXTI4_15_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI4_15_IRQn 0 */
   if (HAL_GPIO_ReadPin(ENC_A_GPIO_Port, ENC_A_Pin) && !HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin))
   {
-    dir = 1;
+    encDir = 1;
   }
   else if (HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin) && !HAL_GPIO_ReadPin(ENC_A_GPIO_Port, ENC_A_Pin))
   {
-    dir = -1;
+    encDir = -1;
   }
   /* USER CODE END EXTI4_15_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(ENC_A_Pin);
@@ -203,6 +208,57 @@ void EXTI4_15_IRQHandler(void)
   /* USER CODE BEGIN EXTI4_15_IRQn 1 */
 
   /* USER CODE END EXTI4_15_IRQn 1 */
+}
+
+/**
+ * @brief This function handles TIM7 global interrupt.
+ *
+ * This steps the stepper motor every time it is called
+ */
+void TIM7_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM7_IRQn 0 */
+  // Full step drive pattern
+  step += stepDir;
+
+  // To extract the proper sequence, we only need to look at the last 2 bits of the number
+  // This is obvious for positive numbers, but, for negative numbers, it works only if the number is in 2's complement
+  // This also only works for sequences that have a length that is a power of 2
+  switch (step & 3)
+  {
+  case 0:
+    HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(STEPPER_B_GPIO_Port, STEPPER_B_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(STEPPER_NA_GPIO_Port, STEPPER_NA_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(STEPPER_NB_GPIO_Port, STEPPER_NB_Pin, GPIO_PIN_RESET);
+    break;
+  case 1:
+    HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(STEPPER_B_GPIO_Port, STEPPER_B_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(STEPPER_NA_GPIO_Port, STEPPER_NA_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(STEPPER_NB_GPIO_Port, STEPPER_NB_Pin, GPIO_PIN_RESET);
+    break;
+  case 2:
+    HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(STEPPER_B_GPIO_Port, STEPPER_B_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(STEPPER_NA_GPIO_Port, STEPPER_NA_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(STEPPER_NB_GPIO_Port, STEPPER_NB_Pin, GPIO_PIN_SET);
+    break;
+  case 3:
+    HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(STEPPER_B_GPIO_Port, STEPPER_B_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(STEPPER_NA_GPIO_Port, STEPPER_NA_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(STEPPER_NB_GPIO_Port, STEPPER_NB_Pin, GPIO_PIN_SET);
+    break;
+  default:
+    break;
+  }
+
+  /* USER CODE END TIM7_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim7);
+  /* USER CODE BEGIN TIM7_IRQn 1 */
+
+  /* USER CODE END TIM7_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
