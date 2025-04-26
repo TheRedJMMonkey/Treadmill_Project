@@ -84,6 +84,8 @@ void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size);
 
 void setServoPos(double servoPosDeg);
 
+void setStepperSpeed(double rpm, int direction);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
