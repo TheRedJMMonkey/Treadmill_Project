@@ -78,7 +78,9 @@ int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
 
 int stepsWalked(int distanceTraveled);
 
-void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size);
+int caloriesBurned(int stepsWalked)
+
+    void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size);
 
 void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size);
 
@@ -150,29 +152,26 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-      /* USER CODE BEGIN WHILE */
-while (1)
-{
-  
+    /* USER CODE BEGIN WHILE */
+
     static int totalSteps = 0;
-    static double totalDistance = 0.0; //meters
+    static double totalDistance = 0.0; // meters
     static int totalCalories = 0;
 
-    
     int motorSteps = step;
     step = 0;
 
     // Calculate distance traveled
-    double stepAngle = 11.25; // Found in Lab 5 Data sheet
-    totalDistance += (2 * M_PI * stepAngle / 360) * motorSteps;
+    double stepAngle = STEPS_PER_REV
+        totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
 
     // Calculate steps walked
-    totalSteps = (int)(totalDistance / 0.762); //average step length meters
+    totalSteps = stepsWalked(totalDistance) // average step length meters
 
-    // Calculate calories burned
-    totalCalories = (int)(totalSteps * 0.04); // about 0.04 calories per step
+        // Calculate calories burned
+        totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
 
-    //LCD
+    // LCD
     snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
     snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
     LCD_SetCursor(0, 0);
@@ -182,12 +181,11 @@ while (1)
 
     // Add a delay to avoid excessive updates
     HAL_Delay(500);
-}
-/* USER CODE END WHILE */
-    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
+  /* USER CODE END WHILE */
+  /* USER CODE BEGIN 3 */
 }
+/* USER CODE END 3 */
 
 /**
  * @brief System Clock Configuration
@@ -570,7 +568,7 @@ static void MX_GPIO_Init(void)
 /// @param motorSteps
 /// @param stepAngle
 /// @return
-int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle)
+double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle)
 {
   double distance = distanceTotal;
   distance += (2 * M_PI * stepAngle / 360) * motorSteps;
