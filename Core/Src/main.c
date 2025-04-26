@@ -150,7 +150,40 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+      /* USER CODE BEGIN WHILE */
+while (1)
+{
+  
+    static int totalSteps = 0;
+    static double totalDistance = 0.0; //meters
+    static int totalCalories = 0;
 
+    
+    int motorSteps = step;
+    step = 0;
+
+    // Calculate distance traveled
+    double stepAngle = 11.25; // Found in Lab 5 Data sheet
+    totalDistance += (2 * M_PI * stepAngle / 360) * motorSteps;
+
+    // Calculate steps walked
+    totalSteps = (int)(totalDistance / 0.762); //average step length meters
+
+    // Calculate calories burned
+    totalCalories = (int)(totalSteps * 0.04); // about 0.04 calories per step
+
+    //LCD
+    snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
+    snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
+    LCD_SetCursor(0, 0);
+    LCD_Print(lcdStr1);
+    LCD_SetCursor(1, 0);
+    LCD_Print(lcdStr2);
+
+    // Add a delay to avoid excessive updates
+    HAL_Delay(500);
+}
+/* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -552,6 +585,12 @@ int stepsWalked(int distanceTraveled)
   double stepsWalked = distanceTraveled / 28;
 
   return (double)stepsWalked;
+}
+
+int caloriesBurned(int stepsWalked)
+{
+  double caloriesBurned = stepsWalked * 0.04;
+  return (int)caloriesBurned;
 }
 
 /// @brief Read bytes sequentially from the SRAM over SPI starting from addr and ending at addr + size
