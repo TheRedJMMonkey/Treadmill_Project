@@ -159,11 +159,10 @@ int main(void)
     static int totalCalories = 0;
 
     int motorSteps = step;
-    step = 0;
 
     // Calculate distance traveled
-    double stepAngle = STEPS_PER_REV
-        totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
+    double stepAngle = STEPS_PER_REV / 360.0;
+    totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
 
     // Calculate steps walked
     totalSteps = stepsWalked(totalDistance) // average step length meters
