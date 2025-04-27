@@ -61,6 +61,8 @@ UART_HandleTypeDef huart1;
 volatile int encDir = 0;
 volatile int step = 0;
 int stepDir = 0;
+double targetStepperRPM = 0;
+double targetServoPosDeg = 0;
 
 /* USER CODE END PV */
 
@@ -723,6 +725,114 @@ int readEncoder(void)
   }
   lastState = newState;
   return movement;
+}
+
+void adjustSettings(void)
+{
+  static int menuIndex = 0;
+  static int settingMode = 0;
+
+  // 1. Check encoder rotation to change menuIndex
+  int encoderMovement = readEncoder(); // -1, 0, or 1
+  if (encoderMovement != 0 && settingMode == 0)
+  {
+    menuIndex += encoderMovement;
+    if (menuIndex < 0)
+      menuIndex = 2;
+    if (menuIndex > 2)
+      menuIndex = 0;
+  }
+
+  // 2. Check B1 button press to enter/exit adjustment mode
+  if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET)
+  {
+    HAL_Delay(200); // Debounce
+    if (settingMode == 0)
+    {
+      settingMode = 1; // Enter adjustment mode
+    }
+    else
+    {
+      // Exiting adjustment mode — apply the settings
+      switch (menuIndex)
+      {
+      case 0:
+        setStepperSpeed(targetStepperRPM, stepDir);
+        break;
+      case 1:
+        setServoPos(targetServoPosDeg);
+        break;
+      case 2:
+        // Apply "other setting" if needed
+        break;
+      }
+      settingMode = 0;
+    }
+    while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET)
+      ; // Wait for button release
+  }
+
+  // 3. Adjust current setting if in settingMode
+  if (settingMode == 1)
+  {
+    int adjust = readEncoder();
+    if (adjust != 0)
+    {
+      switch (menuIndex)
+      {
+      case 0:
+        targetStepperRPM += adjust * 5; // Adjust RPM by 5 per encoder tick
+        if (targetStepperRPM < 0)
+          targetStepperRPM = 0;
+        break;
+      case 1:
+        targetServoPosDeg += adjust * 5.0; // 5 degrees
+        if (targetServoPosDeg < 0)
+          targetServoPosDeg = 0;
+        if (targetServoPosDeg > 210)
+          targetServoPosDeg = 210;
+        break;
+      }
+    }
+  }
+
+  // 4. Update display with current menu
+  LCD_Position(0, 0);
+  switch (menuIndex)
+  {
+  case 0:
+    LCD_PrintString("Set Speed:");
+    break;
+  case 1:
+    LCD_PrintString("Set Incline:");
+    break;
+  case 2:
+    LCD_PrintString("Other Setting:");
+    break;
+  }
+
+  LCD_Position(1, 0);
+  if (settingMode == 0)
+  {
+    LCD_PrintString("Press B1 to Edit");
+  }
+  else
+  {
+    char valStr[17];
+    switch (menuIndex)
+    {
+    case 0:
+      snprintf(valStr, sizeof(valStr), "%.0f RPM", targetStepperRPM);
+      break;
+    case 1:
+      snprintf(valStr, sizeof(valStr), "%.1f deg", targetServoPosDeg);
+      break;
+    case 2:
+      snprintf(valStr, sizeof(valStr), "Value Here");
+      break;
+    }
+    LCD_PrintString(valStr);
+  }
 }
 
 void Error_Handler(void)
