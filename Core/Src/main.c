@@ -135,7 +135,7 @@ int main(void)
 
   // Start 50Hz PWM for the servo
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-  TIM2->CCR2 = 0;
+  TIM1->CCR2 = 0;
 
   // Initalize the LCD
   LCD_Start();
@@ -652,10 +652,10 @@ void setServoPos(double servoPosDeg)
   // Constrain servoPosDeg to between 0 and 210
   servoPosDeg = (servoPosDeg > 210) ? (210) : ((servoPosDeg < 0) ? (0) : (servoPosDeg));
 
-  // Map the servo position in degrees to a valid TIM2->CCR2 value
+  // Map the servo position in degrees to a valid TIM1->CCR2 value
   // The servo only responds to pulse widths between about 350-2600 us
   uint16_t regVal = servoPosDeg * 34.285 + 1119.9825;
-  TIM2->CCR2 = regVal;
+  TIM1->CCR2 = regVal;
 }
 
 /// @brief Set the stepper motor's speed to rpm and set the rotation direction
