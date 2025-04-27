@@ -74,13 +74,13 @@ static void MX_TIM1_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 
-int distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
+double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
 
 int stepsWalked(int distanceTraveled);
 
-int caloriesBurned(int stepsWalked)
+int caloriesBurned(int stepsWalked);
 
-    void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size);
+void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size);
 
 void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size);
 
@@ -165,10 +165,10 @@ int main(void)
     totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
 
     // Calculate steps walked
-    totalSteps = stepsWalked(totalDistance) // average step length meters
+    totalSteps = stepsWalked(totalDistance); // average step length meters
 
-        // Calculate calories burned
-        totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
+    // Calculate calories burned
+    totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
 
     // LCD
     snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
