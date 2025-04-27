@@ -89,6 +89,8 @@ void setServoPos(double servoPosDeg);
 
 void setStepperSpeed(double rpm, int direction);
 
+int readEncoder(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -701,9 +703,26 @@ void updateLiveDisplay(void)
   LCD_PrintString(lcdStr1);
   LCD_Position(1, 0);
   LCD_PrintString(lcdStr2);
+}
+int readEncoder(void)
+{
+  static int lastState = 0;
 
-  // Add a delay to avoid excessive updates
-  HAL_Delay(500);
+  int newState = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_13);
+  int movement = 0;
+  if (newState != lastState)
+  {
+    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_14) != newState)
+    {
+      movement = 1; // Clockwise
+    }
+    else
+    {
+      movement = -1; // Counter-clockwise
+    }
+  }
+  lastState = newState;
+  return movement;
 }
 
 void Error_Handler(void)
