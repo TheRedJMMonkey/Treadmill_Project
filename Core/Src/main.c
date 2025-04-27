@@ -93,6 +93,10 @@ void setStepperSpeed(double rpm, int direction);
 
 int readEncoder(void);
 
+void adjustSettings(void);
+
+void updateLiveDisplay(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -706,6 +710,7 @@ void updateLiveDisplay(void)
   LCD_Position(1, 0);
   LCD_PrintString(lcdStr2);
 }
+
 int readEncoder(void)
 {
   static int lastState = 0;
@@ -733,7 +738,7 @@ void adjustSettings(void)
   static int settingMode = 0;
 
   // 1. Check encoder rotation to change menuIndex
-  int encoderMovement = readEncoder(); // -1, 0, or 1
+  int encoderMovement = readEncoder();
   if (encoderMovement != 0 && settingMode == 0)
   {
     menuIndex += encoderMovement;
@@ -761,9 +766,6 @@ void adjustSettings(void)
         break;
       case 1:
         setServoPos(targetServoPosDeg);
-        break;
-      case 2:
-        // Apply "other setting" if needed
         break;
       }
       settingMode = 0;
