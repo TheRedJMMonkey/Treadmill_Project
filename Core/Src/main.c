@@ -72,6 +72,7 @@ static void MX_SPI2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM7_Init(void);
+static void updateLiveDisplay(void);
 /* USER CODE BEGIN PFP */
 
 double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
@@ -671,6 +672,40 @@ void setStepperSpeed(double rpm, int direction)
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
+
+void updateLiveDisplay(void)
+{
+  static int totalSteps = 0;
+  static double totalDistance = 0.0; // meters
+  static int totalCalories = 0;
+
+  int motorSteps = step;
+
+  // Calculate distance traveled
+  double stepAngle = STEPS_PER_REV / 360.0;
+  totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
+
+  // Calculate steps walked
+  totalSteps = stepsWalked(totalDistance); // average step length meters
+
+  // Calculate calories burned
+  totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
+
+  // LCD
+  char lcdStr1[17];
+  char lcdStr2[17];
+
+  snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
+  snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
+  LCD_Position(0, 0);
+  LCD_PrintString(lcdStr1);
+  LCD_Position(1, 0);
+  LCD_PrintString(lcdStr2);
+
+  // Add a delay to avoid excessive updates
+  HAL_Delay(500);
+}
+
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
