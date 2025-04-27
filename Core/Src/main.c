@@ -22,8 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <math.h>
+#include <stdio.h>
 #include "I2C_LCD_PCF8574.h"
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -173,10 +173,10 @@ int main(void)
     // LCD
     snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
     snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
-    LCD_SetCursor(0, 0);
-    LCD_Print(lcdStr1);
-    LCD_SetCursor(1, 0);
-    LCD_Print(lcdStr2);
+    LCD_Position(0, 0);
+    LCD_PrintString(lcdStr1);
+    LCD_Position(1, 0);
+    LCD_PrintString(lcdStr2);
 
     // Add a delay to avoid excessive updates
     HAL_Delay(500);
