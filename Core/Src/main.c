@@ -130,6 +130,9 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
+  // Start timer 7 for the stepper
+  HAL_TIM_Base_Start(&htim7);
+
   // Start 50Hz PWM for the servo
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   TIM2->CCR2 = 0;
