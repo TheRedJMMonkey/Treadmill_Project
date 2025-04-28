@@ -164,7 +164,7 @@ int main(void)
     static int totalSteps = 0;
     static double totalDistance = 0.0; // meters
     static int totalCalories = 0;
-
+    int adjustSettingsFlag = 0;
     int motorSteps = step;
 
     // Calculate distance traveled
@@ -185,14 +185,27 @@ int main(void)
     LCD_Position(1, 0);
     LCD_PrintString(lcdStr2);
 
-    // Add a delay to avoid excessive updates
     HAL_Delay(500);
-    /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+    if (encDir != 0)
+    {
+      adjustSettingsFlag = 1;
+      encDir = 0;
+    }
+
+    if (adjustSettingsFlag)
+    {
+      adjustSettings();
+      adjustSettingsFlag = 0;
+    }
+
+    HAL_Delay(500);
   }
-  /* USER CODE END 3 */
 }
+/* USER CODE END WHILE */
+/* USER CODE BEGIN 3 */
+
+/* USER CODE END 3 */
 
 /**
  * @brief System Clock Configuration
@@ -755,17 +768,36 @@ void adjustSettings(void)
       switch (menuIndex)
       {
       case 0:
-        targetStepperRPM += adjust * 5; // Adjust RPM by 5 per encoder tick
+        targetStepperRPM += adjust * 2; // Adjust RPM by 2 per encoder tick
         if (targetStepperRPM < 0)
+        {
           targetStepperRPM = 0;
+        }
+        else if (targetStepperRPM > 25)
+        {
+          targetStepperRPM = 25;
+        }
+        else
+        {
+          targetStepperRPM = targetStepperRPM;
+          break;
+        }
         break;
       case 1:
-        targetServoPosDeg += adjust * 5.0; // 5 degrees
+        targetServoPosDeg += adjust * 2.0; // 5 degrees
         if (targetServoPosDeg < 0)
+        {
           targetServoPosDeg = 0;
-        if (targetServoPosDeg > 210)
-          targetServoPosDeg = 210;
-        break;
+        }
+        else if (targetServoPosDeg > 30)
+        {
+          targetServoPosDeg = 30;
+        }
+        else
+        {
+          targetServoPosDeg = targetServoPosDeg;
+          break;
+        }
       }
     }
   }
