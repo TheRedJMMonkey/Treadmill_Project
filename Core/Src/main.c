@@ -716,6 +716,7 @@ void adjustSettings(void)
 
   // 1. Check encoder rotation to change menuIndex
   int encoderMovement = encDir;
+  encDir = 0; // encDir must be cleared immediately to prevent accidentally looping multiple times
   if (encoderMovement && !settingMode)
   {
     menuIndex += encoderMovement;
@@ -752,9 +753,10 @@ void adjustSettings(void)
   }
 
   // 3. Adjust current setting if in settingMode
-  if (settingMode == 1)
+  if (settingMode)
   {
     int adjust = encDir;
+    encDir = 0; // encDir must be cleared immediately to prevent accidentally looping multiple times
     if (adjust)
     {
       switch (menuIndex)
