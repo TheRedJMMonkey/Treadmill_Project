@@ -167,7 +167,7 @@ int main(void)
     static int totalSteps = 0;
     static double totalDistance = 0.0; // meters
     static int totalCalories = 0;
-
+    int adjustSettingsFlag = 0;
     int motorSteps = step;
 
     // Calculate distance traveled
@@ -188,12 +188,26 @@ int main(void)
     LCD_Position(1, 0);
     LCD_PrintString(lcdStr2);
 
-    // Add a delay to avoid excessive updates
+    HAL_Delay(500);
+
+    if (encDir != 0)
+    {
+      adjustSettingsFlag = 1;
+      encDir = 0;
+    }
+
+    if (adjustSettingsFlag)
+    {
+      adjustSettings();
+      adjustSettingsFlag = 0;
+    }
+
     HAL_Delay(500);
   }
-  /* USER CODE END WHILE */
-  /* USER CODE BEGIN 3 */
 }
+/* USER CODE END WHILE */
+/* USER CODE BEGIN 3 */
+
 /* USER CODE END 3 */
 
 /**
