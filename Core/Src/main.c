@@ -762,17 +762,36 @@ void adjustSettings(void)
       switch (menuIndex)
       {
       case 0:
-        targetStepperRPM += adjust * 5; // Adjust RPM by 5 per encoder tick
+        targetStepperRPM += adjust * 2; // Adjust RPM by 2 per encoder tick
         if (targetStepperRPM < 0)
+        {
           targetStepperRPM = 0;
+        }
+        else if (targetStepperRPM > 25)
+        {
+          targetStepperRPM = 25;
+        }
+        else
+        {
+          targetStepperRPM = targetStepperRPM;
+          break;
+        }
         break;
       case 1:
-        targetServoPosDeg += adjust * 5.0; // 5 degrees
+        targetServoPosDeg += adjust * 2.0; // 5 degrees
         if (targetServoPosDeg < 0)
+        {
           targetServoPosDeg = 0;
-        if (targetServoPosDeg > 210)
-          targetServoPosDeg = 210;
-        break;
+        }
+        else if (targetServoPosDeg > 30)
+        {
+          targetServoPosDeg = 30;
+        }
+        else
+        {
+          targetServoPosDeg = targetServoPosDeg;
+          break;
+        }
       }
     }
   }
