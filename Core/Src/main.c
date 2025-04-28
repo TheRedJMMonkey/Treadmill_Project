@@ -77,7 +77,7 @@ static void MX_TIM7_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
-double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
+int distanceTraveled(int motorSteps);
 
 int stepsWalked(int distanceTraveled);
 
@@ -162,14 +162,11 @@ int main(void)
   while (1)
   {
     static int totalSteps = 0;
-    static double totalDistance = 0.0; // meters
+    static int totalDistance = 0; // meters
     static int totalCalories = 0;
-    int adjustSettingsFlag = 0;
-    int motorSteps = step;
 
     // Calculate distance traveled
-    double stepAngle = STEPS_PER_REV / 360.0;
-    totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
+    totalDistance += distanceTraveled(step); // meters
 
     // Calculate steps walked
     totalSteps = stepsWalked(totalDistance); // average step length meters
@@ -178,8 +175,8 @@ int main(void)
     totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
 
     // LCD
-    snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
-    snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
+    snprintf(lcdStr1, 17, "Dist: %d m", totalDistance);
+    snprintf(lcdStr2, 17, "Cal: %d", totalCalories);
     LCD_ClearDisplay();
     LCD_Position(0, 0);
     LCD_PrintString(lcdStr1);
@@ -191,6 +188,7 @@ int main(void)
       HAL_Delay(500);
       adjustSettings();
     }
+    HAL_Delay(250);
     /* USER CODE END WHILE */
   }
   /* USER CODE BEGIN 3 */
@@ -578,11 +576,9 @@ static void MX_GPIO_Init(void)
 /// @param motorSteps
 /// @param stepAngle
 /// @return
-double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle)
+int distanceTraveled(int motorSteps)
 {
-  double distance = distanceTotal;
-  distance += (2 * M_PI * stepAngle / 360) * motorSteps;
-  return (int)distance;
+  return (0.1 * M_PI) * motorSteps / STEPS_PER_REV;
 }
 
 /// @brief
@@ -590,15 +586,12 @@ double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle)
 /// @return
 int stepsWalked(int distanceTraveled)
 {
-  double stepsWalked = distanceTraveled / 28;
-
-  return (double)stepsWalked;
+  return distanceTraveled / 2;
 }
 
 int caloriesBurned(int stepsWalked)
 {
-  double caloriesBurned = stepsWalked * 0.04;
-  return (int)caloriesBurned;
+  return stepsWalked * 0.04;
 }
 
 /// @brief Read bytes sequentially from the SRAM over SPI starting from addr and ending at addr + size
@@ -686,14 +679,13 @@ void setStepperSpeed(double rpm, int direction)
 void updateLiveDisplay(void)
 {
   static int totalSteps = 0;
-  static double totalDistance = 0.0; // meters
+  static int totalDistance = 0.0; // meters
   static int totalCalories = 0;
 
   int motorSteps = step;
 
   // Calculate distance traveled
-  double stepAngle = STEPS_PER_REV / 360.0;
-  totalDistance += distanceTraveled(totalDistance, motorSteps, stepAngle); // meters
+  totalDistance += distanceTraveled(motorSteps); // meters
 
   // Calculate steps walked
   totalSteps = stepsWalked(totalDistance); // average step length meters
