@@ -94,8 +94,6 @@ void Error_Handler(void);
 #define LD5_GPIO_Port GPIOC
 #define NCS_SRAM_SPI_Pin GPIO_PIN_8
 #define NCS_SRAM_SPI_GPIO_Port GPIOA
-#define SERVO_CTRL_Pin GPIO_PIN_9
-#define SERVO_CTRL_GPIO_Port GPIOA
 #define USBF4_DM_Pin GPIO_PIN_11
 #define USBF4_DM_GPIO_Port GPIOA
 #define USBF4_DP_Pin GPIO_PIN_12

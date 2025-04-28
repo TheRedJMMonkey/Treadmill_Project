@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include "I2C_LCD_PCF8574.h"
 /* USER CODE END Includes */
 
@@ -72,9 +73,8 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_TIM7_Init(void);
-static void updateLiveDisplay(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 double distanceTraveled(int distanceTotal, int motorSteps, double stepAngle);
@@ -134,13 +134,13 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI2_Init();
   MX_USART1_UART_Init();
-  MX_TIM1_Init();
   MX_TIM7_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   // Start timer 7 for the stepper
   HAL_TIM_Base_Start_IT(&htim7);
 
-  // Start 50Hz PWM for the servo
+  // Start 40Hz PWM for the servo
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   TIM1->CCR2 = 0;
 
@@ -161,9 +161,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-    /* USER CODE BEGIN WHILE */
-
     static int totalSteps = 0;
     static double totalDistance = 0.0; // meters
     static int totalCalories = 0;
@@ -190,11 +187,12 @@ int main(void)
 
     // Add a delay to avoid excessive updates
     HAL_Delay(500);
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END WHILE */
-  /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
 }
-/* USER CODE END 3 */
 
 /**
  * @brief System Clock Configuration
@@ -348,9 +346,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 14;
+  htim1.Init.Prescaler = 18;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 63999;
+  htim1.Init.Period = 63156;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -454,7 +452,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 576000;
+  huart1.Init.BaudRate = 57600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -661,7 +659,7 @@ void setServoPos(double servoPosDeg)
 
   // Map the servo position in degrees to a valid TIM1->CCR2 value
   // The servo only responds to pulse widths between about 350-2600 us
-  uint16_t regVal = servoPosDeg * 34.285 + 1119.9825;
+  uint16_t regVal = (((servoPosDeg * (2600 - 350) / 210) + 350) / 25000) * 63156;
   TIM1->CCR2 = regVal;
 }
 
@@ -673,11 +671,6 @@ void setStepperSpeed(double rpm, int direction)
   TIM7->ARR = 60.0 * 48000000.0 / 4 / rpm / (double)STEPS_PER_REV - 1;
   stepDir = direction;
 }
-/* USER CODE END 4 */
-/**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
 
 void updateLiveDisplay(void)
 {
@@ -816,6 +809,12 @@ void adjustSettings(void)
   }
 }
 
+/* USER CODE END 4 */
+
+/**
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
