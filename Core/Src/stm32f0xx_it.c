@@ -163,6 +163,7 @@ void EXTI2_3_IRQHandler(void)
   HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
 
   // Stop stepper
+  HAL_TIM_Base_Stop_IT(&htim7);
   HAL_GPIO_WritePin(STEPPER_A_GPIO_Port, STEPPER_A_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(STEPPER_B_GPIO_Port, STEPPER_B_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(STEPPER_NA_GPIO_Port, STEPPER_NA_Pin, GPIO_PIN_RESET);

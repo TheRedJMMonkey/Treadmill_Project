@@ -191,11 +191,10 @@ int main(void)
       HAL_Delay(500);
       adjustSettings();
     }
+    /* USER CODE END WHILE */
   }
+  /* USER CODE BEGIN 3 */
 }
-/* USER CODE END WHILE */
-/* USER CODE BEGIN 3 */
-
 /* USER CODE END 3 */
 
 /**
@@ -421,7 +420,7 @@ static void MX_TIM7_Init(void)
 
   /* USER CODE END TIM7_Init 1 */
   htim7.Instance = TIM7;
-  htim7.Init.Prescaler = 4;
+  htim7.Init.Prescaler = 23;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim7.Init.Period = 65535;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -672,7 +671,15 @@ void setServoPos(double servoPosDeg)
 /// @param direction +-1
 void setStepperSpeed(double rpm, int direction)
 {
-  TIM7->ARR = 60.0 * 48000000.0 / 4 / rpm / (double)STEPS_PER_REV - 1;
+  if (rpm == 0)
+  {
+    HAL_TIM_Base_Stop_IT(&htim7);
+  }
+  else
+  {
+    HAL_TIM_Base_Start_IT(&htim7);
+  }
+  TIM7->ARR = 60.0 * 48000000.0 / 24 / rpm / (double)STEPS_PER_REV - 1;
   stepDir = direction;
 }
 
