@@ -62,8 +62,8 @@ UART_HandleTypeDef huart1;
 volatile int encDir = 0;
 volatile int step = 0;
 int stepDir = 0;
-double targetStepperRPM = 0;
-double targetServoPosDeg = 0;
+int targetStepperRPM = 0;
+int targetServoPosDeg = 0;
 
 /* USER CODE END PV */
 
@@ -180,26 +180,17 @@ int main(void)
     // LCD
     snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
     snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
+    LCD_ClearDisplay();
     LCD_Position(0, 0);
     LCD_PrintString(lcdStr1);
     LCD_Position(1, 0);
     LCD_PrintString(lcdStr2);
 
-    HAL_Delay(500);
-
-    if (encDir != 0)
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
     {
-      adjustSettingsFlag = 1;
-      encDir = 0;
-    }
-
-    if (adjustSettingsFlag)
-    {
+      HAL_Delay(500);
       adjustSettings();
-      adjustSettingsFlag = 0;
     }
-
-    HAL_Delay(500);
   }
 }
 /* USER CODE END WHILE */
@@ -717,130 +708,119 @@ void updateLiveDisplay(void)
 
 void adjustSettings(void)
 {
-  static int menuIndex = 0;
-  static int settingMode = 0;
-
-  // 1. Check encoder rotation to change menuIndex
-  int encoderMovement = encDir;
-  encDir = 0; // encDir must be cleared immediately to prevent accidentally looping multiple times
-  if (encoderMovement && !settingMode)
+  int exitflag = 0;
+  int menuIndex = 0;
+  int settingMode = 0;
+  while (!exitflag)
   {
-    menuIndex += encoderMovement;
-    if (menuIndex < 0)
-      menuIndex = 2;
-    if (menuIndex > 2)
-      menuIndex = 0;
-  }
-
-  // 2. Check B1 button press to enter/exit adjustment mode
-  if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-  {
-    HAL_Delay(200); // Debounce
-    if (settingMode == 0)
+    // 1. Check encoder rotation to change menuIndex
+    if (encDir && !settingMode)
     {
-      settingMode = 1; // Enter adjustment mode
+      menuIndex += encDir;
+      encDir = 0;
+      if (menuIndex < 0)
+        menuIndex = 2;
+      if (menuIndex > 2)
+        menuIndex = 0;
     }
-    else
+
+    // 2. Check B1 button press to enter/exit adjustment mode
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
     {
-      // Exiting adjustment mode — apply the settings
-      switch (menuIndex)
+      HAL_Delay(200); // Debounce
+      if (settingMode == 0)
       {
-      case 0:
-        setStepperSpeed(targetStepperRPM, stepDir);
-        break;
-      case 1:
+        settingMode = 1; // Enter adjustment mode
+      }
+      else
+      {
+        // Exiting adjustment mode — apply the settings
+        setStepperSpeed(targetStepperRPM, 1);
         setServoPos(targetServoPosDeg);
-        break;
+        settingMode = 0; // Exit adjustment mode
       }
-      settingMode = 0;
+      while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+        ; // Wait for button release
     }
-    while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-      ; // Wait for button release
-  }
 
-  // 3. Adjust current setting if in settingMode
-  if (settingMode)
-  {
-    int adjust = encDir;
-    encDir = 0; // encDir must be cleared immediately to prevent accidentally looping multiple times
-    if (adjust)
+    // 3. Adjust current setting if in settingMode
+    if (settingMode)
     {
-      switch (menuIndex)
+      if (encDir)
       {
-      case 0:
-        targetStepperRPM += adjust * 2; // Adjust RPM by 2 per encoder tick
-        if (targetStepperRPM < 0)
+        switch (menuIndex)
         {
-          targetStepperRPM = 0;
-        }
-        else if (targetStepperRPM > 25)
-        {
-          targetStepperRPM = 25;
-        }
-        else
-        {
-          targetStepperRPM = targetStepperRPM;
+        case 0:
+          targetStepperRPM += encDir * 2; // Adjust RPM by 2 per encoder tick
+          if (targetStepperRPM < 0)
+          {
+            targetStepperRPM = 0;
+          }
+          else if (targetStepperRPM > 25)
+          {
+            targetStepperRPM = 25;
+          }
+          break;
+        case 1:
+          targetServoPosDeg += encDir * 5; // 5 degrees
+          if (targetServoPosDeg < 0)
+          {
+            targetServoPosDeg = 0;
+          }
+          else if (targetServoPosDeg > 30)
+          {
+            targetServoPosDeg = 30;
+          }
+          break;
+        case 2:
+          exitflag = 1;
           break;
         }
-        break;
-      case 1:
-        targetServoPosDeg += adjust * 2.0; // 5 degrees
-        if (targetServoPosDeg < 0)
-        {
-          targetServoPosDeg = 0;
-        }
-        else if (targetServoPosDeg > 30)
-        {
-          targetServoPosDeg = 30;
-        }
-        else
-        {
-          targetServoPosDeg = targetServoPosDeg;
-          break;
-        }
+        encDir = 0;
       }
     }
-  }
 
-  // 4. Update display with current menu
-  LCD_Position(0, 0);
-  switch (menuIndex)
-  {
-  case 0:
-    LCD_PrintString("Set Speed:");
-    break;
-  case 1:
-    LCD_PrintString("Set Incline:");
-    break;
-  case 2:
-    LCD_PrintString("Other Setting:");
-    break;
-  }
-
-  LCD_Position(1, 0);
-  if (settingMode == 0)
-  {
-    LCD_PrintString("Press B1 to Edit");
-  }
-  else
-  {
-    char valStr[17];
+    // 4. Update display with current menu
+    LCD_ClearDisplay();
+    LCD_Position(0, 0);
     switch (menuIndex)
     {
     case 0:
-      snprintf(valStr, sizeof(valStr), "%.0f RPM", targetStepperRPM);
+      LCD_PrintString("Set Speed:");
       break;
     case 1:
-      snprintf(valStr, sizeof(valStr), "%.1f deg", targetServoPosDeg);
+      LCD_PrintString("Set Incline:");
       break;
     case 2:
-      snprintf(valStr, sizeof(valStr), "Value Here");
+      LCD_PrintString("Exit Settings:");
       break;
     }
-    LCD_PrintString(valStr);
+
+    LCD_Position(1, 0);
+    if (settingMode == 0)
+    {
+      LCD_PrintString("Press B1 to Edit");
+    }
+    else
+    {
+      char valStr[17];
+      switch (menuIndex)
+      {
+      case 0:
+        snprintf(valStr, sizeof(valStr), "%d RPM", targetStepperRPM);
+        break;
+      case 1:
+        snprintf(valStr, sizeof(valStr), "%d deg", targetServoPosDeg);
+        break;
+      case 2:
+        snprintf(valStr, sizeof(valStr), "Move enc to Exit");
+        break;
+      }
+      LCD_PrintString(valStr);
+    }
+    HAL_Delay(100);
   }
 }
-
 /* USER CODE END 4 */
 
 /**
