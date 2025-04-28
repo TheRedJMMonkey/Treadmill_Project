@@ -91,8 +91,6 @@ void setServoPos(double servoPosDeg);
 
 void setStepperSpeed(double rpm, int direction);
 
-int readEncoder(void);
-
 void adjustSettings(void);
 
 void updateLiveDisplay(void);
@@ -711,35 +709,14 @@ void updateLiveDisplay(void)
   LCD_PrintString(lcdStr2);
 }
 
-int readEncoder(void)
-{
-  static int lastState = 0;
-
-  int newState = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_13);
-  int movement = 0;
-  if (newState != lastState)
-  {
-    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_14) != newState)
-    {
-      movement = 1; // Clockwise
-    }
-    else
-    {
-      movement = -1; // Counter-clockwise
-    }
-  }
-  lastState = newState;
-  return movement;
-}
-
 void adjustSettings(void)
 {
   static int menuIndex = 0;
   static int settingMode = 0;
 
   // 1. Check encoder rotation to change menuIndex
-  int encoderMovement = readEncoder();
-  if (encoderMovement != 0 && settingMode == 0)
+  int encoderMovement = encDir;
+  if (encoderMovement && !settingMode)
   {
     menuIndex += encoderMovement;
     if (menuIndex < 0)
@@ -749,7 +726,7 @@ void adjustSettings(void)
   }
 
   // 2. Check B1 button press to enter/exit adjustment mode
-  if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET)
+  if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
   {
     HAL_Delay(200); // Debounce
     if (settingMode == 0)
@@ -770,15 +747,15 @@ void adjustSettings(void)
       }
       settingMode = 0;
     }
-    while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET)
+    while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
       ; // Wait for button release
   }
 
   // 3. Adjust current setting if in settingMode
   if (settingMode == 1)
   {
-    int adjust = readEncoder();
-    if (adjust != 0)
+    int adjust = encDir;
+    if (adjust)
     {
       switch (menuIndex)
       {
