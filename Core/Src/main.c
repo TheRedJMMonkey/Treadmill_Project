@@ -177,10 +177,13 @@ int main(void)
     //   adjustSettings();
     // }
 
-    if (1)
+    if (liveDisplayLastRefresh)
     {
+      liveDisplayLastRefresh = 0;
       snprintf(lcdStr1, 16, "test sram");
       lcdStr1[16] = 0;
+      LCD_ClearDisplay();
+      LCD_Position(0, 0);
       LCD_PrintString(lcdStr1);
 
       HAL_Delay(2000);
@@ -206,6 +209,7 @@ int main(void)
 
       snprintf(lcdStr1, 16, "%d", data);
       lcdStr1[16] = 0;
+      LCD_Position(1,0);
       LCD_PrintString(lcdStr1);
     }
 
