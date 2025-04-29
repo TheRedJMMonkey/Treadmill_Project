@@ -191,7 +191,7 @@ int main(void)
       uint8_t dataOut[32];
       uint8_t dataIn[32];
 
-      totalSteps = 1234567890;
+      totalSteps = 54321;
 
       dataOut[0] = (totalSteps) & 0xFF;
       dataOut[1] = (totalSteps >> 8) & 0xFF;
@@ -629,7 +629,7 @@ void readSRAM(uint16_t addr, uint8_t *rd_array, uint16_t size)
 
   spi_wr_buf[0] = SRAM_RD_CMD;
   spi_wr_buf[1] = (addr >> 8) & 0xFF;
-  spi_wr_buf[2] = (addr & 0xFF) + 1;
+  spi_wr_buf[2] = addr & 0xFF;
   for (int i = 0; i < size; i++)
   {
     spi_wr_buf[i + 3] = 0xAA; // Dummy value to be able to read
@@ -656,7 +656,7 @@ void writeSRAM(uint16_t addr, uint8_t *wr_array, uint16_t size)
 
   spi_wr_buf[0] = SRAM_WR_CMD;
   spi_wr_buf[1] = (addr >> 8) & 0xFF;
-  spi_wr_buf[2] = (addr & 0xFF) + 1;
+  spi_wr_buf[2] = addr & 0xFF;
   for (int i = 0; i < size; i++)
   {
     spi_wr_buf[i + 3] = wr_array[i]; // Copy bytes from the write array into the write buffer
