@@ -191,9 +191,9 @@ int main(void)
       totalSteps = 1234567890;
 
       dataOut[0] = (totalSteps) & 0xFF;
-      dataOut[1] = (totalSteps >> 4) & 0xFF;
-      dataOut[2] = (totalSteps >> 8) & 0xFF;
-      dataOut[3] = (totalSteps >> 12) & 0xFF;
+      dataOut[1] = (totalSteps >> 8) & 0xFF;
+      dataOut[2] = (totalSteps >> 16) & 0xFF;
+      dataOut[3] = (totalSteps >> 24) & 0xFF;
 
       writeSRAM(0x0000, dataOut, 4);
 
@@ -201,8 +201,8 @@ int main(void)
 
       readSRAM(0x0000, dataIn, 4);
 
-      int data;
-      data = dataIn[0] | (dataIn[1] << 4) | (dataIn[2] << 8) | (dataIn[3] << 12);
+      int data = 0;
+      data = dataIn[0] | (dataIn[1] << 8) | (dataIn[2] << 16) | (dataIn[3] << 24);
 
       snprintf(lcdStr1, 16, "%d", data);
       lcdStr1[16] = 0;
