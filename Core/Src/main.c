@@ -157,37 +157,26 @@ int main(void)
   HAL_SPI_Transmit(&hspi2, sramEnSequentialWriteCMD, 2, 100);
   HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_SET);
 
+  // Variable to keep track of live display refresh
+  uint32_t liveDisplayLastRefresh = HAL_GetTick();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-    // Calculate distance traveled
-    totalDistance += distanceTraveled(step); // meters
-
-    // Calculate steps walked
-    totalSteps = stepsWalked(totalDistance); // average step length meters
-
-    // Calculate calories burned
-    totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
-
-    // LCD
-    snprintf(lcdStr1, 17, "Dist: %d m", totalDistance);
-    snprintf(lcdStr2, 17, "Cal: %d", totalCalories);
-    LCD_ClearDisplay();
-    LCD_Position(0, 0);
-    LCD_PrintString(lcdStr1);
-    LCD_Position(1, 0);
-    LCD_PrintString(lcdStr2);
+    // Update the live display every 250 ms
+    if (HAL_GetTick() - liveDisplayLastRefresh >= 250)
+    {
+      liveDisplayLastRefresh = HAL_GetTick();
+      updateLiveDisplay();
+    }
 
     if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
     {
-      HAL_Delay(500);
       adjustSettings();
     }
-    HAL_Delay(250);
+
     /* USER CODE END WHILE */
   }
   /* USER CODE BEGIN 3 */
@@ -677,14 +666,11 @@ void setStepperSpeed(double rpm, int direction)
 
 void updateLiveDisplay(void)
 {
-  static int totalSteps = 0;
-  static int totalDistance = 0.0; // meters
-  static int totalCalories = 0;
-
-  int motorSteps = step;
+  char lcdStr1[17];
+  char lcdStr2[17];
 
   // Calculate distance traveled
-  totalDistance += distanceTraveled(motorSteps); // meters
+  totalDistance = distanceTraveled(step); // meters
 
   // Calculate steps walked
   totalSteps = stepsWalked(totalDistance); // average step length meters
@@ -692,12 +678,14 @@ void updateLiveDisplay(void)
   // Calculate calories burned
   totalCalories = caloriesBurned(totalSteps); // about 0.04 calories per step
 
-  // LCD
-  char lcdStr1[17];
-  char lcdStr2[17];
+  // Update LCD
+  snprintf(lcdStr1, 17, "Dist: %d m", totalDistance);
+  snprintf(lcdStr2, 17, "Cal: %d", totalCalories);
 
-  snprintf(lcdStr1, 17, "Steps: %d", totalSteps);
-  snprintf(lcdStr2, 17, "Cal: %d Dist: %.1f", totalCalories, totalDistance);
+  lcdStr1[16] = 0;
+  lcdStr1[16] = 0;
+
+  LCD_ClearDisplay();
   LCD_Position(0, 0);
   LCD_PrintString(lcdStr1);
   LCD_Position(1, 0);
@@ -706,26 +694,50 @@ void updateLiveDisplay(void)
 
 void adjustSettings(void)
 {
+  char lcdStr1[17];
+  char lcdStr2[17];
+  int updateLCD = 0;
+
   int exitflag = 0;
   int menuIndex = 0;
   int settingMode = 0;
+
   while (!exitflag)
   {
-    // 1. Check encoder rotation to change menuIndex
-    if (encDir && !settingMode)
+    if (encDir)
     {
-      menuIndex += encDir;
+      updateLCD = 1;
+
+      if (settingMode) // Adjust current setting if in settingMode
+      {
+        switch (menuIndex)
+        {
+        case 0:
+          targetStepperRPM += encDir * 2; // Adjust RPM by 2 per encoder tick
+          targetStepperRPM = (targetStepperRPM > 21) ? (21) : ((targetStepperRPM < 0) ? (0) : (targetStepperRPM));
+          break;
+        case 1:
+          targetServoPosDeg += encDir * 5; // Adjust servo position by 5 degrees per encoder tick
+          targetServoPosDeg = (targetServoPosDeg > 30) ? (30) : ((targetServoPosDeg < 0) ? (0) : (targetServoPosDeg));
+          break;
+        case 2:
+          exitflag = 1;
+          break;
+        }
+      }
+      else if (!settingMode) // Adjust menu index if not in settingMode
+      {
+        menuIndex += encDir;
+        menuIndex = (menuIndex > 2) ? (0) : ((menuIndex < 0) ? (2) : (menuIndex));
+      }
+
       encDir = 0;
-      if (menuIndex < 0)
-        menuIndex = 2;
-      if (menuIndex > 2)
-        menuIndex = 0;
     }
 
-    // 2. Check B1 button press to enter/exit adjustment mode
+    // Check B1 button press to enter/exit adjustment mode
     if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
     {
-      HAL_Delay(200); // Debounce
+      updateLCD = 1;
       if (settingMode == 0)
       {
         settingMode = 1; // Enter adjustment mode
@@ -741,82 +753,53 @@ void adjustSettings(void)
         ; // Wait for button release
     }
 
-    // 3. Adjust current setting if in settingMode
-    if (settingMode)
+    // Update display with current menu
+    if (updateLCD)
     {
-      if (encDir)
+      updateLCD = 0;
+      switch (menuIndex)
+      {
+      case 0:
+        snprintf(lcdStr1, sizeof(lcdStr1), "Set Speed:");
+        break;
+      case 1:
+        snprintf(lcdStr1, sizeof(lcdStr1), "Set Incline:");
+        break;
+      case 2:
+        snprintf(lcdStr1, sizeof(lcdStr1), "Exit Settings:");
+        break;
+      }
+
+      if (settingMode)
       {
         switch (menuIndex)
         {
         case 0:
-          targetStepperRPM += encDir * 2; // Adjust RPM by 2 per encoder tick
-          if (targetStepperRPM < 0)
-          {
-            targetStepperRPM = 0;
-          }
-          else if (targetStepperRPM > 25)
-          {
-            targetStepperRPM = 25;
-          }
+          snprintf(lcdStr2, sizeof(lcdStr2), "%d RPM", targetStepperRPM);
           break;
         case 1:
-          targetServoPosDeg += encDir * 5; // 5 degrees
-          if (targetServoPosDeg < 0)
-          {
-            targetServoPosDeg = 0;
-          }
-          else if (targetServoPosDeg > 30)
-          {
-            targetServoPosDeg = 30;
-          }
+          snprintf(lcdStr2, sizeof(lcdStr2), "%d deg", targetServoPosDeg);
           break;
         case 2:
-          exitflag = 1;
+          snprintf(lcdStr2, sizeof(lcdStr2), "Move enc to Exit");
           break;
         }
-        encDir = 0;
       }
-    }
-
-    // 4. Update display with current menu
-    LCD_ClearDisplay();
-    LCD_Position(0, 0);
-    switch (menuIndex)
-    {
-    case 0:
-      LCD_PrintString("Set Speed:");
-      break;
-    case 1:
-      LCD_PrintString("Set Incline:");
-      break;
-    case 2:
-      LCD_PrintString("Exit Settings:");
-      break;
-    }
-
-    LCD_Position(1, 0);
-    if (settingMode == 0)
-    {
-      LCD_PrintString("Press B1 to Edit");
-    }
-    else
-    {
-      char valStr[17];
-      switch (menuIndex)
+      else
       {
-      case 0:
-        snprintf(valStr, sizeof(valStr), "%d RPM", targetStepperRPM);
-        break;
-      case 1:
-        snprintf(valStr, sizeof(valStr), "%d deg", targetServoPosDeg);
-        break;
-      case 2:
-        snprintf(valStr, sizeof(valStr), "Move enc to Exit");
-        break;
+        snprintf(lcdStr2, sizeof(lcdStr2), "Press B1 to Edit");
       }
-      LCD_PrintString(valStr);
+
+      lcdStr1[16] = 0;
+      lcdStr2[16] = 0;
+
+      // Update the LCD
+      LCD_ClearDisplay();
+      LCD_Position(0, 0);
+      LCD_PrintString(lcdStr1);
+      LCD_Position(1, 0);
+      LCD_PrintString(lcdStr2);
     }
-    HAL_Delay(100);
   }
 }
 /* USER CODE END 4 */
