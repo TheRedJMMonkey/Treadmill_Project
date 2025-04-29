@@ -47,6 +47,9 @@ extern TIM_HandleTypeDef htim1;
 extern volatile int encDir;
 extern volatile int step;
 extern int stepDir;
+extern int totalSteps;
+extern int totalDistance; // meters
+extern int totalCalories;
 
 /* USER CODE END PV */
 
@@ -62,6 +65,7 @@ extern int stepDir;
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim7;
+extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -70,8 +74,8 @@ extern TIM_HandleTypeDef htim7;
 /*           Cortex-M0 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
 /**
-  * @brief This function handles Non maskable interrupt.
-  */
+ * @brief This function handles Non maskable interrupt.
+ */
 void NMI_Handler(void)
 {
   /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
@@ -85,8 +89,8 @@ void NMI_Handler(void)
 }
 
 /**
-  * @brief This function handles Hard fault interrupt.
-  */
+ * @brief This function handles Hard fault interrupt.
+ */
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
@@ -100,8 +104,8 @@ void HardFault_Handler(void)
 }
 
 /**
-  * @brief This function handles System service call via SWI instruction.
-  */
+ * @brief This function handles System service call via SWI instruction.
+ */
 void SVC_Handler(void)
 {
   /* USER CODE BEGIN SVC_IRQn 0 */
@@ -113,8 +117,8 @@ void SVC_Handler(void)
 }
 
 /**
-  * @brief This function handles Pendable request for system service.
-  */
+ * @brief This function handles Pendable request for system service.
+ */
 void PendSV_Handler(void)
 {
   /* USER CODE BEGIN PendSV_IRQn 0 */
@@ -126,8 +130,8 @@ void PendSV_Handler(void)
 }
 
 /**
-  * @brief This function handles System tick timer.
-  */
+ * @brief This function handles System tick timer.
+ */
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
@@ -147,8 +151,8 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles EXTI line 2 and 3 interrupts.
-  */
+ * @brief This function handles EXTI line 2 and 3 interrupts.
+ */
 void EXTI2_3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI2_3_IRQn 0 */
@@ -176,6 +180,16 @@ void EXTI2_3_IRQHandler(void)
   LCD_Position(1, 0);
   LCD_PrintString(stopMsg2);
 
+  unit8_t dataOut[81] = "Workout Report: \n\n";
+  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+  unit8_t dataOut[81] = {0};
+  sprintf(dataOut, "Total Distance: %d m\n", totalDistance);
+  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+  sprintf(dataOut, "Total Steps: %d \n", totalSteps);
+  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+  sprintf(dataOut, "Total Calories: %d\n", totalCalories);
+  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+
   while (1)
   {
     // Wait forever until the microcontroller restarts
@@ -189,8 +203,8 @@ void EXTI2_3_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles EXTI line 4 to 15 interrupts.
-  */
+ * @brief This function handles EXTI line 4 to 15 interrupts.
+ */
 void EXTI4_15_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI4_15_IRQn 0 */
@@ -211,8 +225,8 @@ void EXTI4_15_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM7 global interrupt.
-  */
+ * @brief This function handles TIM7 global interrupt.
+ */
 void TIM7_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM7_IRQn 0 */

@@ -58,7 +58,9 @@ TIM_HandleTypeDef htim7;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-
+int totalSteps = 0;
+int totalDistance = 0; // meters
+int totalCalories = 0;
 volatile int encDir = 0;
 volatile int step = 0;
 int stepDir = 0;
@@ -161,9 +163,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    static int totalSteps = 0;
-    static int totalDistance = 0; // meters
-    static int totalCalories = 0;
 
     // Calculate distance traveled
     totalDistance += distanceTraveled(step); // meters
