@@ -22,6 +22,8 @@
 #include "stm32f0xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
 #include "I2C_LCD_PCF8574.h"
 /* USER CODE END Includes */
 
@@ -180,15 +182,23 @@ void EXTI2_3_IRQHandler(void)
   LCD_Position(1, 0);
   LCD_PrintString(stopMsg2);
 
-  unit8_t dataOut[81] = "Workout Report: \n\n";
+  uint8_t dataOut[81];
+
+  sprintf(dataOut, "Workout Report: \n\n");
   HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
-  unit8_t dataOut[81] = {0};
+  memset(dataOut, 0, sizeof(dataOut));
+
   sprintf(dataOut, "Total Distance: %d m\n", totalDistance);
   HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+  memset(dataOut, 0, sizeof(dataOut));
+
   sprintf(dataOut, "Total Steps: %d \n", totalSteps);
   HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+  memset(dataOut, 0, sizeof(dataOut));
+  
   sprintf(dataOut, "Total Calories: %d\n", totalCalories);
   HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
+  memset(dataOut, 0, sizeof(dataOut));
 
   while (1)
   {
