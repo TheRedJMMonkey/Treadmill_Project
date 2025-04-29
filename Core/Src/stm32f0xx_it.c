@@ -185,20 +185,16 @@ void EXTI2_3_IRQHandler(void)
   uint8_t dataOut[81];
 
   sprintf(dataOut, "Workout Report: \n\n");
-  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
-  memset(dataOut, 0, sizeof(dataOut));
+  HAL_UART_Transmit(&huart1, dataOut, strlen(dataOut), 100);
 
   sprintf(dataOut, "Total Distance: %d m\n", totalDistance);
-  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
-  memset(dataOut, 0, sizeof(dataOut));
+  HAL_UART_Transmit(&huart1, dataOut, strlen(dataOut), 100);
 
   sprintf(dataOut, "Total Steps: %d \n", totalSteps);
-  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
-  memset(dataOut, 0, sizeof(dataOut));
-  
+  HAL_UART_Transmit(&huart1, dataOut, strlen(dataOut), 100);
+
   sprintf(dataOut, "Total Calories: %d\n", totalCalories);
-  HAL_UART_Transmit(&huart1, dataOut, sizeof(dataOut), 100);
-  memset(dataOut, 0, sizeof(dataOut));
+  HAL_UART_Transmit(&huart1, dataOut, strlen(dataOut), 100);
 
   while (1)
   {
