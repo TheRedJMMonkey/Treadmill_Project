@@ -166,15 +166,47 @@ int main(void)
   while (1)
   {
     // Update the live display every 250 ms
-    if (HAL_GetTick() - liveDisplayLastRefresh >= 250)
-    {
-      liveDisplayLastRefresh = HAL_GetTick();
-      updateLiveDisplay();
-    }
+    // if (HAL_GetTick() - liveDisplayLastRefresh >= 250)
+    // {
+    //   liveDisplayLastRefresh = HAL_GetTick();
+    //   updateLiveDisplay();
+    // }
 
-    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+    // if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+    // {
+    //   adjustSettings();
+    // }
+
+    if (1)
     {
-      adjustSettings();
+      snprintf(lcdStr1, 16, "test sram");
+      lcdStr1[16] = 0;
+      LCD_PrintString(lcdStr1);
+
+      HAL_Delay(2000);
+
+      uint8_t dataOut[32];
+      uint8_t dataIn[32];
+
+      totalSteps = 1234567890;
+
+      dataOut[0] = (totalSteps) & 0xFF;
+      dataOut[1] = (totalSteps >> 4) & 0xFF;
+      dataOut[2] = (totalSteps >> 8) & 0xFF;
+      dataOut[3] = (totalSteps >> 12) & 0xFF;
+
+      writeSRAM(0x0000, dataOut, 4);
+
+      HAL_Delay(2000);
+
+      readSRAM(0x0000, dataIn, 4);
+
+      int data;
+      data = dataIn[0] | (dataIn[1] << 4) | (dataIn[2] << 8) | (dataIn[3] << 12);
+
+      snprintf(lcdStr1, 16, "%d", data);
+      lcdStr1[16] = 0;
+      LCD_PrintString(lcdStr1);
     }
 
     /* USER CODE END WHILE */
