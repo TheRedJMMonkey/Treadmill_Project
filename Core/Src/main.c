@@ -119,7 +119,10 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  static int totalSteps = 0;
+  static int totalDistance = 0; // meters
+  static int totalCalories = 0;
+  static int estopTriggered = 0;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -161,10 +164,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    static int totalSteps = 0;
-    static int totalDistance = 0; // meters
-    static int totalCalories = 0;
-
+    // Flag for ESTOP
     // Calculate distance traveled
     totalDistance += distanceTraveled(step); // meters
 
@@ -191,6 +191,21 @@ int main(void)
     HAL_Delay(250);
     /* USER CODE END WHILE */
   }
+
+  if (estopTriggered) // Ensure estopTriggered is properly declared
+  {
+    char uartBuffer[64];
+    snprintf(uartBuffer, sizeof(uartBuffer), "ESTOP Triggered!\r\nDist: %d m\r\nSteps: %d\r\nCal: %d\r\n", totalDistance, totalSteps, totalCalories);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+    estopTriggered = 0; // Clear the flag
+  }
+
+  if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+  {
+    HAL_Delay(500);
+    adjustSettings();
+  }
+  HAL_Delay(250);
   /* USER CODE BEGIN 3 */
 }
 /* USER CODE END 3 */
