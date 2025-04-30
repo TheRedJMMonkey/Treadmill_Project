@@ -191,7 +191,7 @@ int main(void)
       uint8_t dataOut[32] = {0};
       uint8_t dataIn[32] = {0};
 
-      totalSteps = 0;
+      totalSteps = 12345;
 
       dataOut[0] = SRAM_WR_CMD;
       dataOut[1] = (0 >> 8) & 0xFF;
@@ -229,6 +229,12 @@ int main(void)
 
       HAL_Delay(10000);
 
+      snprintf(lcdStr1, 16, "test sram");
+      lcdStr1[16] = 0;
+      LCD_ClearDisplay();
+      LCD_Position(0, 0);
+      LCD_PrintString(lcdStr1);
+
       totalSteps = 54321;
 
       dataOut[0] = (totalSteps) & 0xFF;
@@ -242,7 +248,7 @@ int main(void)
 
       readSRAM(0x0000, dataIn, 4);
 
-      int data = 0;
+      data = 0;
       data = dataIn[0] | (dataIn[1] << 8) | (dataIn[2] << 16) | (dataIn[3] << 24);
 
       snprintf(lcdStr1, 16, "%d", data);
