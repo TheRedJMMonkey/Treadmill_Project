@@ -262,6 +262,11 @@ int main(void)
         snprintf(lcdStr1, 16, "Save to slot %d?", currentSlot);
         snprintf(lcdStr2, 16, "B1 to save", currentSlot);
         updateLCD = 1;
+
+        // Wait for button release
+        while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+          ;
+        HAL_Delay(200);
       }
 
       if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) && editSlot)
@@ -320,6 +325,11 @@ int main(void)
         snprintf(lcdStr1, 16, "Send slot %d?", currentSlot);
         snprintf(lcdStr2, 16, "B1 to send", currentSlot);
         updateLCD = 1;
+
+        // Wait for button release
+        while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+          ;
+        HAL_Delay(200);
       }
 
       if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) && editSlot)
