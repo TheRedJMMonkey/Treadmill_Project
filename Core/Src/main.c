@@ -39,6 +39,7 @@ static const uint8_t SRAM_WR_CMD = 0x02;
 static const uint8_t SRAM_RD_CMD = 0x03;
 
 static const int STEPS_PER_REV = 2048;
+
 #define MAX_SAVE_SLOTS 10
 #define WORKOUT_ADDR_BASE 0x0000
 
@@ -49,8 +50,7 @@ static const int STEPS_PER_REV = 2048;
 #define MENU_WRITE_WORKOUT 1
 #define MENU_VIEW_HISTORY 2
 #define MENU_SETTINGS 3
-#define MENU_EXIT 4
-#pragma pack(push, 1)
+
 typedef struct
 {
   uint16_t magicNumber;
@@ -58,8 +58,7 @@ typedef struct
   int32_t totalDistance;
   int32_t totalCalories;
   uint16_t slotUsed;
-} WorkoutData_t;
-#pragma pack(pop)
+} __packed WorkoutData_t;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -78,20 +77,14 @@ TIM_HandleTypeDef htim7;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-volatile int totalSteps = 0;
-volatile int totalDistance = 0; // meters
-volatile int totalCalories = 0;
-volatile uint8_t currentSlot = 0;
-volatile uint8_t currentMenu = MENU_LIVE_DISPLAY;
-volatile uint8_t showDetails = 0;
-volatile uint8_t saveSelected = 0;
+int totalSteps = 0;
+int totalDistance = 0; // meters
+int totalCalories = 0;
 volatile int encDir = 0;
 volatile int step = 0;
 int stepDir = 0;
 int targetStepperRPM = 0;
 int targetServoPosDeg = 0;
-volatile int estopTriggered = 0; // Declare and initialize estopTriggered
-static const uint8_t SRAM_EN_SEQ_MODE = 0x40;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -197,44 +190,46 @@ int main(void)
 
   // Variable to keep track of live display refresh
   uint32_t liveDisplayLastRefresh = HAL_GetTick();
+
+  // Variable to prevent updating the LCD too often
+  int updateLCD = 0;
+
+  // UI variables
+  int currentSlot = 0;
+  int currentMenu = MENU_LIVE_DISPLAY;
+  int editSlot = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+    if (encDir && !editSlot)
     {
-      HAL_Delay(50); // Debounce
-      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-      {
-        // Cycle through menu options
-        currentMenu = (currentMenu + 1) % 5;
+      updateLCD = 1;
+      // Cycle through menu options
+      currentMenu += encDir;
+      currentMenu = (currentMenu > 3) ? (0) : ((currentMenu < 0) ? (3) : currentMenu);
 
-        // Display new menu option
-        LCD_ClearDisplay();
-        LCD_Position(0, 0);
-        switch (currentMenu)
-        {
-        case MENU_LIVE_DISPLAY:
-          LCD_PrintString("Live Display");
-          break;
-        case MENU_WRITE_WORKOUT:
-          LCD_PrintString("Write Workout");
-          break;
-        case MENU_VIEW_HISTORY:
-          LCD_PrintString("View History");
-          break;
-        case MENU_SETTINGS:
-          LCD_PrintString("Settings");
-          break;
-        case MENU_EXIT:
-          LCD_PrintString("Exit Menu");
-          break;
-        }
-        while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-          ; // Wait for button release
+      switch (currentMenu)
+      {
+      case MENU_LIVE_DISPLAY:
+        break;
+      case MENU_WRITE_WORKOUT:
+        snprintf(lcdStr1, 16, "Write Workout");
+        snprintf(lcdStr2, 16, "B1 to set slot");
+        break;
+      case MENU_VIEW_HISTORY:
+        snprintf(lcdStr1, 16, "Send to computer");
+        snprintf(lcdStr2, 16, "B1 to set slot");
+        break;
+      case MENU_SETTINGS:
+        snprintf(lcdStr1, 16, "Settings");
+        snprintf(lcdStr2, 16, "B1 to enter");
+        break;
       }
+      encDir = 0;
     }
 
     // Handle each menu state
@@ -242,10 +237,6 @@ int main(void)
     {
     case MENU_LIVE_DISPLAY:
       // Update live display
-      totalDistance = distanceTraveled(step);
-      totalSteps = stepsWalked(totalDistance);
-      totalCalories = caloriesBurned(totalSteps);
-
       if (HAL_GetTick() - liveDisplayLastRefresh >= 250)
       {
         liveDisplayLastRefresh = HAL_GetTick();
@@ -254,170 +245,122 @@ int main(void)
       break;
 
     case MENU_WRITE_WORKOUT:
-      if (encDir != 0 && !saveSelected) // Only allow slot changes when not selected
+      if (encDir && editSlot)
       {
-        // ... existing encoder handling code ...
-      }
+        currentSlot += encDir;
+        currentSlot = (currentSlot > MAX_SAVE_SLOTS) ? (0) : ((currentSlot < 0) ? (MAX_SAVE_SLOTS) : currentSlot);
 
-      // Handle B1 button press
-      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-      {
-        HAL_Delay(50); // Debounce
-        if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-        {
-          if (!saveSelected)
-          {
-            // First B1 press - confirm save
-            saveSelected = 1;
-            LCD_ClearDisplay();
-            LCD_Position(0, 0);
-            char line1[17];
-            snprintf(line1, 17, "Save to slot %d?", currentSlot);
-            LCD_PrintString(line1);
-            LCD_Position(1, 0);
-            LCD_PrintString("B1 to confirm");
-          }
-          else
-          {
-            // Second B1 press - perform save
-            WorkoutData_t workout;
-            workout.magicNumber = WORKOUT_MAGIC;
-            workout.totalSteps = totalSteps;
-            workout.totalDistance = totalDistance;
-            workout.totalCalories = totalCalories;
-            workout.slotUsed = 1;
+        snprintf(lcdStr1, 16, "Save to slot %d?", currentSlot);
 
-            uint16_t addr = WORKOUT_ADDR_BASE + (currentSlot * WORKOUT_SIZE);
-            writeSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
-
-            // Verify save
-            WorkoutData_t verify;
-            readSRAM(addr, (uint8_t *)&verify, sizeof(WorkoutData_t));
-
-            LCD_ClearDisplay();
-            LCD_Position(0, 0);
-            if (verify.magicNumber == WORKOUT_MAGIC)
-            {
-              LCD_PrintString("Workout Saved!");
-            }
-            else
-            {
-              LCD_PrintString("Save Failed!");
-            }
-            LCD_Position(1, 0);
-            LCD_PrintString("B1 to exit");
-
-            // Wait for button release first
-            while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-              ;
-            HAL_Delay(50);
-
-            // Wait for next press to exit
-            while (!HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-              ;
-            HAL_Delay(50);
-            while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-              ;
-
-            // Reset flags and return to live display
-            saveSelected = 0;
-            currentMenu = MENU_LIVE_DISPLAY;
-            LCD_ClearDisplay();
-          }
-          // Wait for button release
-          while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-            ;
-          HAL_Delay(50);
-        }
-      }
-      break;
-    
-
-    case MENU_VIEW_HISTORY:
-      if (encDir != 0 && !showDetails) // Only allow slot changes when not showing details
-      {
-        uint8_t viewSlot = (currentSlot + encDir) % MAX_SAVE_SLOTS;
-        WorkoutData_t workout;
-        uint16_t addr = WORKOUT_ADDR_BASE + (viewSlot * WORKOUT_SIZE);
-
-        readSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
-
-        LCD_ClearDisplay();
-        LCD_Position(0, 0);
-        char line1[17], line2[17];
-        snprintf(line1, 17, "Slot %d:", viewSlot);
-
-        if (workout.magicNumber == WORKOUT_MAGIC && workout.slotUsed)
-        {
-          snprintf(line2, 17, "Press B1 for info");
-        }
-        else
-        {
-          snprintf(line2, 17, "[Empty]");
-        }
-
-        LCD_PrintString(line1);
-        LCD_Position(1, 0);
-        LCD_PrintString(line2);
-
-        currentSlot = viewSlot;
+        updateLCD = 1;
         encDir = 0;
       }
 
-      // Handle B1 button press
+      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) && !editSlot)
+      {
+        editSlot = 1;
+        snprintf(lcdStr1, 16, "Save to slot %d?", currentSlot);
+        snprintf(lcdStr2, 16, "B1 to save", currentSlot);
+        updateLCD = 1;
+      }
+
+      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) && editSlot)
+      {
+        WorkoutData_t workout;
+        workout.magicNumber = WORKOUT_MAGIC;
+        workout.totalSteps = totalSteps;
+        workout.totalDistance = totalDistance;
+        workout.totalCalories = totalCalories;
+        workout.slotUsed = 1;
+
+        uint16_t addr = WORKOUT_ADDR_BASE + (currentSlot * WORKOUT_SIZE);
+        writeSRAM(addr, (uint8_t *)&workout, WORKOUT_SIZE);
+
+        // Verify save
+        WorkoutData_t verify;
+        readSRAM(addr, (uint8_t *)&verify, WORKOUT_SIZE);
+
+        LCD_ClearDisplay();
+        LCD_Position(0, 0);
+        if (verify.magicNumber == WORKOUT_MAGIC)
+        {
+          LCD_PrintString("Workout Saved!");
+        }
+        else
+        {
+          LCD_PrintString("Save Failed!");
+        }
+
+        // Wait for button release
+        while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+          ;
+
+        HAL_Delay(1000);
+        // Reset flags and return to live display
+        currentMenu = MENU_LIVE_DISPLAY;
+      }
+      break;
+
+    case MENU_VIEW_HISTORY:
+      if (encDir && editSlot)
+      {
+        currentSlot += encDir;
+        currentSlot = (currentSlot > MAX_SAVE_SLOTS) ? (0) : ((currentSlot < 0) ? (MAX_SAVE_SLOTS) : currentSlot);
+
+        snprintf(lcdStr1, 16, "Send slot %d?", currentSlot);
+
+        updateLCD = 1;
+        encDir = 0;
+      }
+
+      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) && !editSlot)
+      {
+        editSlot = 1;
+        snprintf(lcdStr1, 16, "Send slot %d?", currentSlot);
+        snprintf(lcdStr2, 16, "B1 to send", currentSlot);
+        updateLCD = 1;
+      }
+
+      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) && editSlot)
+      {
+        loadWorkout(currentSlot);
+
+        LCD_ClearDisplay();
+        LCD_PrintString("Sent!");
+
+        // Wait for button release
+        while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+          ;
+
+        HAL_Delay(1000);
+        // Reset flags and return to live display
+        currentMenu = MENU_LIVE_DISPLAY;
+      }
+      break;
+
+    case MENU_SETTINGS:
       if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
       {
-        HAL_Delay(50); // Debounce
-        if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-        {
-          WorkoutData_t workout;
-          uint16_t addr = WORKOUT_ADDR_BASE + (currentSlot * WORKOUT_SIZE);
-          readSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
-
-          if (workout.magicNumber == WORKOUT_MAGIC && workout.slotUsed)
-          {
-            showDetails = !showDetails; // Toggle detail view
-
-            LCD_ClearDisplay();
-            if (showDetails)
-            {
-              // Show workout details
-              char line1[17], line2[17];
-              snprintf(line1, 17, "Steps:%ld", workout.totalSteps);
-              snprintf(line2, 17, "Cal:%ld Dist:%ld", workout.totalCalories, workout.totalDistance);
-
-              LCD_Position(0, 0);
-              LCD_PrintString(line1);
-              LCD_Position(1, 0);
-              LCD_PrintString(line2);
-            }
-            else
-            {
-              // Return to slot view
-              char line1[17], line2[17];
-              snprintf(line1, 17, "Slot %d:", currentSlot);
-              snprintf(line2, 17, "Press B1 for info");
-
-              LCD_Position(0, 0);
-              LCD_PrintString(line1);
-              LCD_Position(1, 0);
-              LCD_PrintString(line2);
-            }
-          }
-          while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
-            ; // Wait for button release
-        }
+        // Wait for button release
+        while (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+          ;
+        adjustSettings();
       }
       break;
+    }
 
-    case MENU_EXIT:
-      if (estopTriggered)
-      {
-        currentMenu = MENU_LIVE_DISPLAY;
-        estopTriggered = 0;
-        LCD_ClearDisplay();
-      }
-      break;
+    if (updateLCD)
+    {
+      updateLCD = 0;
+      lcdStr1[16] = 0;
+      lcdStr2[16] = 0;
+
+      // Update the LCD
+      LCD_ClearDisplay();
+      LCD_Position(0, 0);
+      LCD_PrintString(lcdStr1);
+      LCD_Position(1, 0);
+      LCD_PrintString(lcdStr2);
     }
 
     // Process UART commands (keep this for remote access)
@@ -809,9 +752,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 /// @brief
-/// @param distanceTotal
 /// @param motorSteps
-/// @param stepAngle
 /// @return
 int distanceTraveled(int motorSteps)
 {
@@ -1059,7 +1000,7 @@ void saveWorkout(uint8_t slot)
   snprintf(debugMsg, sizeof(debugMsg),
            "\r\nSaving to slot %d: Steps=%d, Dist=%d, Cal=%d\r\n",
            slot, totalSteps, totalDistance, totalCalories);
-  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), 100);
 
   WorkoutData_t workout;
   workout.magicNumber = WORKOUT_MAGIC;
@@ -1071,11 +1012,11 @@ void saveWorkout(uint8_t slot)
   uint16_t addr = WORKOUT_ADDR_BASE + (slot * WORKOUT_SIZE);
 
   // Write the structure to SRAM
-  writeSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
+  writeSRAM(addr, (uint8_t *)&workout, WORKOUT_SIZE);
 
   // Verify the write by reading back
   WorkoutData_t verify;
-  readSRAM(addr, (uint8_t *)&verify, sizeof(WorkoutData_t));
+  readSRAM(addr, (uint8_t *)&verify, WORKOUT_SIZE);
 
   if (verify.magicNumber == WORKOUT_MAGIC)
   {
@@ -1083,7 +1024,7 @@ void saveWorkout(uint8_t slot)
     snprintf(uartBuffer, sizeof(uartBuffer),
              "Successfully saved workout in slot %d:\r\nSteps: %ld\r\nDist: %ld m\r\nCal: %ld\r\n",
              slot, verify.totalSteps, verify.totalDistance, verify.totalCalories);
-    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
   }
 }
 
@@ -1093,17 +1034,17 @@ void loadWorkout(uint8_t slot)
   uint16_t addr = WORKOUT_ADDR_BASE + (slot * WORKOUT_SIZE);
 
   // Clear the structure before reading
-  memset(&workout, 0, sizeof(WorkoutData_t));
+  memset(&workout, 0, WORKOUT_SIZE);
 
   // Read from SRAM
-  readSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
+  readSRAM(addr, (uint8_t *)&workout, WORKOUT_SIZE);
 
   // Debug output of raw values
   char debugMsg[64];
   snprintf(debugMsg, sizeof(debugMsg),
            "\r\nRaw data from slot %d: Magic=0x%04X, Used=%d\r\n",
            slot, workout.magicNumber, workout.slotUsed);
-  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), 100);
 
   if (workout.magicNumber == WORKOUT_MAGIC && workout.slotUsed)
   {
@@ -1111,14 +1052,14 @@ void loadWorkout(uint8_t slot)
     snprintf(uartBuffer, sizeof(uartBuffer),
              "Slot %d workout:\r\nSteps: %ld\r\nDistance: %ld m\r\nCalories: %ld\r\n",
              slot, workout.totalSteps, workout.totalDistance, workout.totalCalories);
-    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
   }
   else
   {
     char uartBuffer[32];
     snprintf(uartBuffer, sizeof(uartBuffer),
              "No valid workout in slot %d\r\n", slot);
-    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
   }
 }
 
@@ -1126,7 +1067,7 @@ void displayWorkoutHistory(void)
 {
   char uartBuffer[32];
   snprintf(uartBuffer, sizeof(uartBuffer), "\r\nWorkout History:\r\n");
-  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
 
   for (uint8_t slot = 0; slot < MAX_SAVE_SLOTS; slot++)
   {
@@ -1167,7 +1108,7 @@ void processUARTCommand(uint8_t *cmdBuffer)
           "v - View all workout slots\r\n"
           "0-9 - View specific slot\r\n"
           "h - Show this help menu\r\n";
-      HAL_UART_Transmit(&huart1, (uint8_t *)helpMsg, strlen(helpMsg), HAL_MAX_DELAY);
+      HAL_UART_Transmit(&huart1, (uint8_t *)helpMsg, strlen(helpMsg), 100);
     }
     break;
   }
@@ -1177,14 +1118,14 @@ void handleViewWorkouts(void)
 {
   char uartBuffer[128];
   snprintf(uartBuffer, sizeof(uartBuffer), "\r\nStored Workouts:\r\n");
-  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
 
   for (uint8_t slot = 0; slot < MAX_SAVE_SLOTS; slot++)
   {
     WorkoutData_t workout;
     uint16_t addr = WORKOUT_ADDR_BASE + (slot * WORKOUT_SIZE);
 
-    readSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
+    readSRAM(addr, (uint8_t *)&workout, WORKOUT_SIZE);
 
     if (workout.magicNumber == WORKOUT_MAGIC && workout.slotUsed)
     {
@@ -1197,7 +1138,7 @@ void handleViewWorkouts(void)
       snprintf(uartBuffer, sizeof(uartBuffer),
                "\r\nSlot %d: [empty]\r\n", slot);
     }
-    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
   }
 }
 /* USER CODE END 4 */
