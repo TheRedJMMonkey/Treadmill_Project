@@ -331,6 +331,7 @@ int main(void)
         }
       }
       break;
+    
 
     case MENU_VIEW_HISTORY:
       if (encDir != 0 && !showDetails) // Only allow slot changes when not showing details
