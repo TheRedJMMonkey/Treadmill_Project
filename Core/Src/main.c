@@ -152,13 +152,13 @@ int main(void)
   // Configure SRAM for sequential reads and writes
   uint8_t sramEnSequentialReadCMD[2] = {0x05, 0x40};
   uint8_t sramEnSequentialWriteCMD[2] = {0x01, 0x40};
-  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
   HAL_SPI_Transmit(&hspi2, sramEnSequentialReadCMD, 2, 100);
-  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
   HAL_Delay(5);
-  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
   HAL_SPI_Transmit(&hspi2, sramEnSequentialWriteCMD, 2, 100);
-  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_MEMS_SPI_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
 
   // Variable to keep track of live display refresh
   uint32_t liveDisplayLastRefresh = HAL_GetTick();
