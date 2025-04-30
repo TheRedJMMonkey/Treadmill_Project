@@ -297,6 +297,7 @@ int main(void)
 
         HAL_Delay(1000);
         // Reset flags and return to live display
+        editSlot = 0;
         currentMenu = MENU_LIVE_DISPLAY;
       }
       break;
@@ -334,6 +335,7 @@ int main(void)
 
         HAL_Delay(1000);
         // Reset flags and return to live display
+        editSlot = 0;
         currentMenu = MENU_LIVE_DISPLAY;
       }
       break;
