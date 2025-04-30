@@ -39,7 +39,21 @@ static const uint8_t SRAM_WR_CMD = 0x02;
 static const uint8_t SRAM_RD_CMD = 0x03;
 
 static const int STEPS_PER_REV = 2048;
+#define MAX_SAVE_SLOTS 10
+#define WORKOUT_ADDR_BASE 0x0000
 
+#define WORKOUT_MAGIC 0xAA55
+#define WORKOUT_SIZE sizeof(WorkoutData_t)
+#pragma pack(push, 1)
+typedef struct
+{
+  uint16_t magicNumber;
+  int32_t totalSteps;
+  int32_t totalDistance;
+  int32_t totalCalories;
+  uint16_t slotUsed;
+} WorkoutData_t;
+#pragma pack(pop)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -58,15 +72,18 @@ TIM_HandleTypeDef htim7;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-int totalSteps = 0;
-int totalDistance = 0; // meters
-int totalCalories = 0;
+volatile int totalSteps = 0;
+volatile int totalDistance = 0; // meters
+volatile int totalCalories = 0;
+volatile uint8_t currentSlot = 0;
+
 volatile int encDir = 0;
 volatile int step = 0;
 int stepDir = 0;
 int targetStepperRPM = 0;
 int targetServoPosDeg = 0;
-
+volatile int estopTriggered = 0; // Declare and initialize estopTriggered
+static const uint8_t SRAM_EN_SEQ_MODE = 0x40;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,6 +113,16 @@ void setStepperSpeed(double rpm, int direction);
 void adjustSettings(void);
 
 void updateLiveDisplay(void);
+
+void saveWorkout(uint8_t slot);
+
+void loadWorkout(uint8_t slot);
+
+void displayWorkoutHistory(void);
+
+void processUARTCommand(uint8_t *cmdBuffer);
+
+void handleViewWorkouts(void);
 
 /* USER CODE END PFP */
 
@@ -180,40 +207,82 @@ int main(void)
     //   adjustSettings();
     // }
 
-    if (liveDisplayLastRefresh)
+    // if (liveDisplayLastRefresh)
+    // {
+    //   liveDisplayLastRefresh = 0;
+    //   snprintf(lcdStr1, 16, "test sram");
+    //   lcdStr1[16] = 0;
+    //   LCD_PrintString(lcdStr1);
+
+    //   HAL_Delay(2000);
+
+    //   uint8_t dataOut[32];
+    //   uint8_t dataIn[32];
+
+    //   totalSteps = 1234567890;
+
+    //   dataOut[0] = (totalSteps) & 0xFF;
+    //   dataOut[1] = (totalSteps >> 8) & 0xFF;
+    //   dataOut[2] = (totalSteps >> 16) & 0xFF;
+    //   dataOut[3] = (totalSteps >> 24) & 0xFF;
+
+    //   writeSRAM(0x0000, dataOut, 4);
+
+    //   HAL_Delay(2000);
+
+    //   readSRAM(0x0000, dataIn, 4);
+
+    //   int data;
+    //   data = dataIn[0] | (dataIn[1] << 8) | (dataIn[2] << 16) | (dataIn[3] << 24);
+
+    //   snprintf(lcdStr1, 16, "%d", data);
+    //   lcdStr1[16] = 0;
+    //   LCD_PrintString(lcdStr1);
+    // }
+    // Update the live display every 250 ms
+    totalDistance = distanceTraveled(step);
+    totalSteps = stepsWalked(totalDistance);
+    totalCalories = caloriesBurned(totalSteps);
+
+    if (HAL_GetTick() - liveDisplayLastRefresh >= 250)
     {
-      liveDisplayLastRefresh = 0;
-      snprintf(lcdStr1, 16, "test sram");
-      lcdStr1[16] = 0;
-      LCD_PrintString(lcdStr1);
-
-      HAL_Delay(2000);
-
-      uint8_t dataOut[32];
-      uint8_t dataIn[32];
-
-      totalSteps = 1234567890;
-
-      dataOut[0] = (totalSteps) & 0xFF;
-      dataOut[1] = (totalSteps >> 8) & 0xFF;
-      dataOut[2] = (totalSteps >> 16) & 0xFF;
-      dataOut[3] = (totalSteps >> 24) & 0xFF;
-
-      writeSRAM(0x0000, dataOut, 4);
-
-      HAL_Delay(2000);
-
-      readSRAM(0x0000, dataIn, 4);
-
-      int data;
-      data = dataIn[0] | (dataIn[1] << 8) | (dataIn[2] << 16) | (dataIn[3] << 24);
-
-      snprintf(lcdStr1, 16, "%d", data);
-      lcdStr1[16] = 0;
-      LCD_PrintString(lcdStr1);
+      liveDisplayLastRefresh = HAL_GetTick();
+      updateLiveDisplay();
     }
 
-    /* USER CODE END WHILE */
+    // Check for button press to enter settings
+    if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+    {
+      HAL_Delay(50); // Debounce
+      if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin))
+      {
+        adjustSettings();
+      }
+    }
+
+    // Handle ESTOP and workout data
+    if (estopTriggered)
+    {
+      // Debug print current values
+      char debugMsg[64];
+      snprintf(debugMsg, sizeof(debugMsg),
+               "\r\nCurrent values before save:\r\nSteps: %d\r\nDist: %d m\r\nCal: %d\r\n",
+               totalSteps, totalDistance, totalCalories);
+      HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), HAL_MAX_DELAY);
+
+      saveWorkout(currentSlot);
+      currentSlot = (currentSlot + 1) % MAX_SAVE_SLOTS;
+      displayWorkoutHistory();
+      estopTriggered = 0;
+    }
+
+    // Process UART commands
+    uint8_t cmdBuffer[8];
+    if (HAL_UART_Receive(&huart1, cmdBuffer, 1, 100) == HAL_OK)
+    {
+      HAL_UART_Transmit(&huart1, &cmdBuffer, 1, 100);
+      processUARTCommand(cmdBuffer);
+    }
   }
   /* USER CODE BEGIN 3 */
 }
@@ -610,7 +679,7 @@ int distanceTraveled(int motorSteps)
 /// @return
 int stepsWalked(int distanceTraveled)
 {
-  return distanceTraveled / 2;
+  return distanceTraveled * 2;
 }
 
 int caloriesBurned(int stepsWalked)
@@ -836,6 +905,166 @@ void adjustSettings(void)
       LCD_Position(1, 0);
       LCD_PrintString(lcdStr2);
     }
+  }
+}
+
+void saveWorkout(uint8_t slot)
+{
+  // Add debug output before saving
+  char debugMsg[64];
+  snprintf(debugMsg, sizeof(debugMsg),
+           "\r\nSaving to slot %d: Steps=%d, Dist=%d, Cal=%d\r\n",
+           slot, totalSteps, totalDistance, totalCalories);
+  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), HAL_MAX_DELAY);
+
+  WorkoutData_t workout;
+  workout.magicNumber = WORKOUT_MAGIC;
+  workout.totalSteps = totalSteps;
+  workout.totalDistance = totalDistance;
+  workout.totalCalories = totalCalories;
+  workout.slotUsed = 1;
+
+  uint16_t addr = WORKOUT_ADDR_BASE + (slot * WORKOUT_SIZE);
+
+  // Write the structure to SRAM
+  writeSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
+
+  // Verify the write by reading back
+  WorkoutData_t verify;
+  readSRAM(addr, (uint8_t *)&verify, sizeof(WorkoutData_t));
+
+  if (verify.magicNumber == WORKOUT_MAGIC)
+  {
+    char uartBuffer[64];
+    snprintf(uartBuffer, sizeof(uartBuffer),
+             "Successfully saved workout in slot %d:\r\nSteps: %ld\r\nDist: %ld m\r\nCal: %ld\r\n",
+             slot, verify.totalSteps, verify.totalDistance, verify.totalCalories);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+  }
+}
+
+void loadWorkout(uint8_t slot)
+{
+  WorkoutData_t workout;
+  uint16_t addr = WORKOUT_ADDR_BASE + (slot * WORKOUT_SIZE);
+
+  // Clear the structure before reading
+  memset(&workout, 0, sizeof(WorkoutData_t));
+
+  // Read from SRAM
+  readSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
+
+  // Debug output of raw values
+  char debugMsg[64];
+  snprintf(debugMsg, sizeof(debugMsg),
+           "\r\nRaw data from slot %d: Magic=0x%04X, Used=%d\r\n",
+           slot, workout.magicNumber, workout.slotUsed);
+  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), HAL_MAX_DELAY);
+
+  if (workout.magicNumber == WORKOUT_MAGIC && workout.slotUsed)
+  {
+    char uartBuffer[64];
+    snprintf(uartBuffer, sizeof(uartBuffer),
+             "Slot %d workout:\r\nSteps: %ld\r\nDistance: %ld m\r\nCalories: %ld\r\n",
+             slot, workout.totalSteps, workout.totalDistance, workout.totalCalories);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+  }
+  else
+  {
+    char uartBuffer[32];
+    snprintf(uartBuffer, sizeof(uartBuffer),
+             "No valid workout in slot %d\r\n", slot);
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+  }
+}
+
+void displayWorkoutHistory(void)
+{
+  char uartBuffer[32];
+  snprintf(uartBuffer, sizeof(uartBuffer), "\r\nWorkout History:\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+
+  for (uint8_t slot = 0; slot < MAX_SAVE_SLOTS; slot++)
+  {
+    loadWorkout(slot);
+  }
+}
+
+void processUARTCommand(uint8_t *cmdBuffer)
+{
+  char cmd = *cmdBuffer; // Get the actual character
+
+  // Debug print
+  char debugMsg[32];
+  snprintf(debugMsg, sizeof(debugMsg), "\r\nReceived command: %c\r\n", cmd);
+  HAL_UART_Transmit(&huart1, (uint8_t *)debugMsg, strlen(debugMsg), HAL_MAX_DELAY);
+
+  switch (cmd)
+  {
+  case 'v':
+  case 'V':
+    handleViewWorkouts();
+    break;
+
+  case '0':
+  case '1':
+  case '2':
+  case '3':
+  case '4':
+  case '5':
+  case '6':
+  case '7':
+  case '8':
+  case '9':
+    loadWorkout(cmd - '0');
+    break;
+
+  case 'h':
+  case 'H':
+  {
+    const char *helpMsg =
+        "\r\nTreadmill Workout Commands:\r\n"
+        "v - View all workout slots\r\n"
+        "0-9 - View specific slot\r\n"
+        "h - Show this help menu\r\n";
+    HAL_UART_Transmit(&huart1, (uint8_t *)helpMsg, strlen(helpMsg), HAL_MAX_DELAY);
+  }
+  break;
+
+  default:
+  {
+    const char *errorMsg = "\r\nInvalid command. Type 'h' for help.\r\n";
+    HAL_UART_Transmit(&huart1, (uint8_t *)errorMsg, strlen(errorMsg), HAL_MAX_DELAY);
+  }
+  break;
+  }
+}
+
+void handleViewWorkouts(void)
+{
+  char uartBuffer[128];
+  snprintf(uartBuffer, sizeof(uartBuffer), "\r\nStored Workouts:\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
+
+  for (uint8_t slot = 0; slot < MAX_SAVE_SLOTS; slot++)
+  {
+    WorkoutData_t workout;
+    uint16_t addr = WORKOUT_ADDR_BASE + (slot * WORKOUT_SIZE);
+
+    readSRAM(addr, (uint8_t *)&workout, sizeof(WorkoutData_t));
+
+    if (workout.magicNumber == WORKOUT_MAGIC && workout.slotUsed)
+    {
+      snprintf(uartBuffer, sizeof(uartBuffer),
+               "\r\nSlot %d:\r\nSteps: %ld\r\nDistance: %ld m\r\nCalories: %ld\r\n",
+               slot, workout.totalSteps, workout.totalDistance, workout.totalCalories);
+    }
+    else
+    {
+      snprintf(uartBuffer, sizeof(uartBuffer),
+               "\r\nSlot %d: [empty]\r\n", slot);
+    }
+    HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), HAL_MAX_DELAY);
   }
 }
 /* USER CODE END 4 */
