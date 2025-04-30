@@ -185,59 +185,14 @@ int main(void)
       liveDisplayLastRefresh = 0;
       snprintf(lcdStr1, 16, "test sram");
       lcdStr1[16] = 0;
-      LCD_ClearDisplay();
-      LCD_Position(0, 0);
       LCD_PrintString(lcdStr1);
 
       HAL_Delay(2000);
 
-      uint8_t dataOut[32] = {0};
-      uint8_t dataIn[32] = {0};
+      uint8_t dataOut[32];
+      uint8_t dataIn[32];
 
-      totalSteps = 12345;
-
-      dataOut[0] = SRAM_WR_CMD;
-      dataOut[1] = (0 >> 8) & 0xFF;
-      dataOut[2] = 0 & 0xFF;
-      dataOut[3] = (totalSteps) & 0xFF;
-      dataOut[4] = (totalSteps >> 8) & 0xFF;
-      dataOut[5] = (totalSteps >> 16) & 0xFF;
-      dataOut[6] = (totalSteps >> 24) & 0xFF;
-
-      HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
-      HAL_SPI_TransmitReceive(&hspi2, dataOut, dataIn, 7, 100);
-      HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
-      HAL_Delay(2);
-
-      dataOut[0] = SRAM_RD_CMD;
-      dataOut[1] = (0 >> 8) & 0xFF;
-      dataOut[2] = 0 & 0xFF;
-      dataOut[3] = 0;
-      dataOut[4] = 0;
-      dataOut[5] = 0;
-      dataOut[6] = 0;
-      HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_RESET);
-      HAL_SPI_TransmitReceive(&hspi2, dataOut, dataIn, 7, 100);
-      HAL_GPIO_WritePin(NCS_SRAM_SPI_GPIO_Port, NCS_SRAM_SPI_Pin, GPIO_PIN_SET);
-      HAL_Delay(2);
-
-      int data = 0;
-      data = dataIn[3] | (dataIn[4] << 8) | (dataIn[5] << 16) | (dataIn[6] << 24);
-
-      snprintf(lcdStr1, 16, "%d", data);
-      lcdStr1[16] = 0;
-      LCD_Position(1, 0);
-      LCD_PrintString(lcdStr1);
-
-      HAL_Delay(10000);
-
-      snprintf(lcdStr1, 16, "test sram");
-      lcdStr1[16] = 0;
-      LCD_ClearDisplay();
-      LCD_Position(0, 0);
-      LCD_PrintString(lcdStr1);
-
-      totalSteps = 54321;
+      totalSteps = 1234567890;
 
       dataOut[0] = (totalSteps) & 0xFF;
       dataOut[1] = (totalSteps >> 8) & 0xFF;
@@ -246,16 +201,15 @@ int main(void)
 
       writeSRAM(0x0000, dataOut, 4);
 
-      HAL_Delay(10000);
+      HAL_Delay(2000);
 
       readSRAM(0x0000, dataIn, 4);
 
-      data = 0;
+      int data;
       data = dataIn[0] | (dataIn[1] << 8) | (dataIn[2] << 16) | (dataIn[3] << 24);
 
       snprintf(lcdStr1, 16, "%d", data);
       lcdStr1[16] = 0;
-      LCD_Position(1, 0);
       LCD_PrintString(lcdStr1);
     }
 
