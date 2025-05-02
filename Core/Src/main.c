@@ -119,8 +119,6 @@ void saveWorkout(uint8_t slot);
 
 void loadWorkout(uint8_t slot);
 
-void displayWorkoutHistory(void);
-
 void processUARTCommand(uint8_t *cmdBuffer);
 
 void handleViewWorkouts(void);
@@ -1072,18 +1070,6 @@ void loadWorkout(uint8_t slot)
     snprintf(uartBuffer, sizeof(uartBuffer),
              "No valid workout in slot %d\r\n", slot);
     HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
-  }
-}
-
-void displayWorkoutHistory(void)
-{
-  char uartBuffer[32];
-  snprintf(uartBuffer, sizeof(uartBuffer), "\r\nWorkout History:\r\n");
-  HAL_UART_Transmit(&huart1, (uint8_t *)uartBuffer, strlen(uartBuffer), 100);
-
-  for (uint8_t slot = 0; slot < MAX_SAVE_SLOTS; slot++)
-  {
-    loadWorkout(slot);
   }
 }
 
