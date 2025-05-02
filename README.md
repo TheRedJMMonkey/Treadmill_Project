@@ -1,0 +1,1 @@
+Use [`STM32 VS Code Extension`](https://marketplace.visualstudio.com/items?itemName=stmicroelectronics.stm32-vscode-extension) to be able to build, flash, and debug directly in VS Code.
